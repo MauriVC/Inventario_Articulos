@@ -1,0 +1,12 @@
+{
+    "name": "inventario-backend",
+    "version": "1.0.0",
+    "description": "API para inventario",
+    "main": "index.js",
+    "scripts": {
+        "dev": "node index.js"
+    },
+    "dependencies": {
+        "fastify": "^4.26.2"
+    }
+}
