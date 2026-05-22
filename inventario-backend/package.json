@@ -9,6 +9,7 @@
     "dependencies": {
         "fastify": "^4.26.2",
         "@supabase/supabase-js": "^2.39.3",
-        "dotenv": "^16.4.5"
+        "dotenv": "^16.4.5",
+        "mysql2": "^3.0.0"
     }
 }
