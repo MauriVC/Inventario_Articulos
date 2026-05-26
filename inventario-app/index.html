@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Inventario - U.E. Corazón Nuevo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app"></div>
+  <div id="error-box" style="display:none; position:fixed; top:0; left:0; width:100%; z-index:9999; background:red; color:white; padding:20px; font-family:monospace; white-space:pre-wrap;"></div>
+  <script>
+    window.addEventListener('error', function(e) {
+      document.getElementById('error-box').style.display = 'block';
+      document.getElementById('error-box').innerText = 'ERROR: ' + e.message + '\n' + (e.error ? e.error.stack : '');
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      document.getElementById('error-box').style.display = 'block';
+      document.getElementById('error-box').innerText = 'PROMISE REJECTION: ' + (e.reason && e.reason.stack ? e.reason.stack : e.reason);
+    });
+  </script>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
