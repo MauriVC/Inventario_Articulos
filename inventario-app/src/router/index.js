@@ -26,6 +26,12 @@ const routes = [
     meta: { title: 'Artículos', icon: 'Package' }
   },
   {
+    path: '/paquetes',
+    name: 'Paquetes',
+    component: () => import('@/views/PaquetesView.vue'),
+    meta: { title: 'Paquetes', icon: 'Boxes' }
+  },
+  {
     path: '/movimientos/salida',
     name: 'MovimientoSalida',
     component: () => import('@/views/MovimientoSalidaView.vue'),
@@ -72,6 +78,12 @@ const routes = [
     name: 'Atributos',
     component: () => import('@/views/AtributosView.vue'),
     meta: { title: 'Atributos', icon: 'Tags' }
+  },
+  {
+    path: '/devolucion',
+    name: 'Devolucion',
+    component: () => import('@/views/DevolucionView.vue'),
+    meta: { title: 'Adm. Devolución', icon: 'RotateCcw' }
   },
   {
     path: '/usuarios',

@@ -108,10 +108,20 @@
             <div><span class="text-sm text-muted">Registrado por</span><p class="font-medium">Juan C. Pérez</p></div>
           </div>
 
+          <div class="paquete-info mb-4" v-if="selectedMov.paqueteNombre">
+            <div class="flex items-center gap-2" style="padding: var(--space-3); background: rgba(237, 137, 54, 0.05); border: 1px solid var(--color-warning-light); border-radius: var(--radius-md);">
+              <Boxes :size="18" style="color: #dd6b20;" />
+              <div>
+                <p class="text-sm text-muted" style="line-height: 1;">Salida originada desde el paquete</p>
+                <p class="font-medium" style="color: #dd6b20;">{{ selectedMov.paqueteNombre }}</p>
+              </div>
+            </div>
+          </div>
+
           <h3 class="font-semibold mb-3" style="font-size: var(--font-size-base); color: var(--color-gray-700);">Artículos del movimiento</h3>
           <table class="table">
             <thead>
-              <tr><th>Artículo</th><th>Color</th><th>Cantidad</th><th>Stock Ant.</th><th>Stock Post.</th></tr>
+              <tr><th>Artículo</th><th>Color</th><th class="text-center">Cantidad</th><th class="text-center">Stock Ant.</th><th class="text-center">Stock Post.</th><th class="text-center">Devolución</th></tr>
             </thead>
             <tbody>
               <tr v-for="d in selectedMov.detalles" :key="d.nombre">
@@ -125,6 +135,12 @@
                 <td class="font-semibold text-center">{{ d.cantidad }}</td>
                 <td class="text-center text-muted">{{ d.stockAnt }}</td>
                 <td class="text-center font-medium">{{ d.stockPost }}</td>
+                <td class="text-center">
+                  <span v-if="d.requiereDevolucion" class="badge badge-devolucion">
+                    <RotateCcw :size="10" /> PENDIENTE
+                  </span>
+                  <span v-else class="text-xs text-muted">—</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -140,7 +156,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Search, FileDown, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus } from 'lucide-vue-next'
+import { Search, FileDown, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw } from 'lucide-vue-next'
 
 function tipoBadgeClass(tipo) {
   if (tipo === 'SALIDA') return 'badge-danger'
@@ -157,6 +173,16 @@ const selectedMov = ref(null)
 const filters = ref({ desde: '', hasta: '', tipo: '', almacen: '', search: '' })
 
 const movimientos = ref([
+  { codigo: 'SAL-2026-0013', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Juan Morales', ci: '88776655', destino: 'Taller 2B', totalArticulos: 5, fecha: '27/05/2026 23:21',
+    paqueteNombre: 'Paquete Carpintería',
+    detalles: [ 
+      { nombre: 'Martillo Carpintero', color: 'Mango Rojo', hex: '#dc3545', cantidad: 1, stockAnt: 15, stockPost: 14, requiereDevolucion: true }, 
+      { nombre: 'Clavos 2 pulgadas', color: 'S/N', hex: '#e9ecef', cantidad: 50, stockAnt: 300, stockPost: 250, requiereDevolucion: false },
+      { nombre: 'Cuaderno 100h Tapa Dura', color: 'Azul', hex: '#007bff', cantidad: 1, stockAnt: 200, stockPost: 199, requiereDevolucion: false },
+      { nombre: 'Lápiz HB', color: 'S/N', hex: '#e9ecef', cantidad: 1, stockAnt: 500, stockPost: 499, requiereDevolucion: false },
+      { nombre: 'Cinta Métrica 5m', color: 'S/N', hex: '#e9ecef', cantidad: 1, stockAnt: 25, stockPost: 24, requiereDevolucion: true }
+    ]
+  },
   { codigo: 'SAL-2026-0012', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Carlos Pérez', ci: '12345678', destino: 'Aula 3A', totalArticulos: 3, fecha: '26/05/2026 10:30',
     detalles: [ { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantidad: 10, stockAnt: 200, stockPost: 190 }, { nombre: 'Cuaderno 100h', color: 'Rojo', hex: '#dc3545', cantidad: 5, stockAnt: 150, stockPost: 145 }, { nombre: 'Folder Oficio', color: 'Azul', hex: '#007bff', cantidad: 20, stockAnt: 50, stockPost: 30 }]
   },
@@ -195,3 +221,18 @@ const filteredMovimientos = computed(() => {
   })
 })
 </script>
+
+<style scoped>
+.badge-devolucion {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: rgba(56, 161, 105, 0.12);
+  color: #276749;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+</style>

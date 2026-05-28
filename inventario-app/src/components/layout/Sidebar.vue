@@ -25,6 +25,10 @@
           <Package :size="20" />
           <span>Artículos</span>
         </router-link>
+        <router-link to="/paquetes" class="sidebar-link" :class="{ active: $route.name === 'Paquetes' }">
+          <Boxes :size="20" />
+          <span>Paquetes</span>
+        </router-link>
       </div>
 
       <div class="sidebar-section">
@@ -72,6 +76,10 @@
           <Tags :size="20" />
           <span>Atributos</span>
         </router-link>
+        <router-link to="/devolucion" class="sidebar-link" :class="{ active: $route.name === 'Devolucion' }">
+          <RotateCcw :size="20" />
+          <span>Adm. Devolución</span>
+        </router-link>
       </div>
 
       <div class="sidebar-section">
@@ -102,9 +110,9 @@
 <script setup>
 import { computed } from 'vue'
 import {
-  LayoutDashboard, Warehouse, Package,
+  LayoutDashboard, Warehouse, Package, Boxes,
   ArrowUpFromLine, ArrowDownToLine, ClipboardList, PackageMinus,
-  FolderTree, Tag, Ruler, Palette, Tags,
+  FolderTree, Tag, Ruler, Palette, Tags, RotateCcw,
   Users, UserCircle, LogOut
 } from 'lucide-vue-next'
 

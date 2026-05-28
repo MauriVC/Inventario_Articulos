@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS articulos (
   codigo             VARCHAR(30),
   nombre            VARCHAR(200) NOT NULL,
   descripcion       TEXT,
+  requiere_devolucion TINYINT(1) NOT NULL DEFAULT 0 COMMENT '1 = el artículo debe devolverse (herramientas, equipos), 0 = no requiere devolución (consumibles)',
   estado            ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
   created_by        INT DEFAULT NULL,
   updated_by        INT DEFAULT NULL,
@@ -185,21 +186,38 @@ CREATE TABLE IF NOT EXISTS articulo_datos (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
--- 13. TABLA DE PAQUETE DETALLES (componentes de un paquete)
---     Reutiliza el patrón "paquete_detalles" del ERP (simplificado)
---     Un artículo con unidad_medida "Paquete" puede contener N componentes
+-- 13. TABLA DE PAQUETES (paquetes personalizados)
+--     Entidad independiente para armar paquetes de artículos
+--     para enviar a clientes/solicitantes
 -- ============================================
-CREATE TABLE IF NOT EXISTS paquete_detalles (
+CREATE TABLE IF NOT EXISTS paquetes (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  nombre        VARCHAR(200) NOT NULL,
+  categoria_id  INT DEFAULT NULL COMMENT 'NULL cuando es Mixta (artículos de diferentes categorías)',
+  almacen_id    INT NOT NULL,
+  observacion   TEXT,
+  estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
+  created_by    INT DEFAULT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL,
+  FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================
+-- 13b. TABLA DE PAQUETE CONTENIDO (artículos dentro de un paquete)
+--      Cada línea indica qué artículo y cuántas unidades incluye
+-- ============================================
+CREATE TABLE IF NOT EXISTS paquete_contenido (
   id                INT AUTO_INCREMENT PRIMARY KEY,
-  paquete_id        INT NOT NULL COMMENT 'ID del artículo que ES el paquete',
-  articulo_id       INT NOT NULL COMMENT 'ID del artículo componente',
-  articulo_item_id  INT DEFAULT NULL COMMENT 'Variante fija (color) del componente, NULL = cualquiera',
+  paquete_id        INT NOT NULL,
+  articulo_item_id  INT NOT NULL COMMENT 'Variante específica (artículo + color)',
   cantidad          INT NOT NULL DEFAULT 1,
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (paquete_id) REFERENCES articulos(id) ON DELETE CASCADE,
-  FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE,
-  FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id) ON DELETE SET NULL
+  FOREIGN KEY (paquete_id) REFERENCES paquetes(id) ON DELETE CASCADE,
+  FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
@@ -212,6 +230,7 @@ CREATE TABLE IF NOT EXISTS movimientos (
   tipo          ENUM('ENTRADA', 'SALIDA', 'BAJA') NOT NULL,
   almacen_id    INT NOT NULL,
   usuario_id    INT NOT NULL COMMENT 'Usuario que registra el movimiento',
+  paquete_id    INT DEFAULT NULL COMMENT 'Si la salida se originó desde un paquete, referencia al mismo',
   solicitante_ci    VARCHAR(20) COMMENT 'CI del solicitante (puede no ser usuario del sistema)',
   solicitante_nombre VARCHAR(200),
   solicitante_telefono VARCHAR(20),
@@ -224,7 +243,8 @@ CREATE TABLE IF NOT EXISTS movimientos (
   INDEX idx_almacen_tipo_fecha (almacen_id, tipo, fecha_movimiento),
   INDEX idx_fecha (fecha_movimiento),
   FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE,
-  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (paquete_id) REFERENCES paquetes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
@@ -253,7 +273,6 @@ INSERT INTO colores (nombre, codigo_hex) VALUES ('S/N', '#E9ECEF');
 -- Unidades de medida iniciales (incluye "Paquete" para activar la sección de componentes)
 INSERT INTO unidad_medidas (nombre, abreviatura) VALUES
   ('Unidad', 'Ud'),
-  ('Paquete', 'Paq'),
   ('Litro', 'L'),
   ('Kilogramo', 'Kg'),
   ('Metro', 'm'),
