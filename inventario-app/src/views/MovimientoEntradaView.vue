@@ -81,7 +81,10 @@
 
         <div class="search-results" v-if="articuloSearch.length > 0">
           <div class="search-result-item" v-for="a in searchResults" :key="a.id" @click="addArticulo(a)">
-            <span class="font-medium">{{ a.nombre }}</span>
+            <div class="flex items-center gap-2">
+              <span class="font-medium">{{ a.nombre }}</span>
+              <span class="badge badge-warning" v-if="a.esPaquete" style="font-size: 10px;">📦 PAQUETE</span>
+            </div>
             <div class="flex items-center gap-2">
               <span class="color-dot" :style="{ background: a.hex, width: '12px', height: '12px' }"></span>
               <span class="text-sm text-muted">{{ a.colorNombre }} — Stock actual: {{ a.stock }}</span>
@@ -102,29 +105,50 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(item, i) in items" :key="i">
-                <td class="font-medium">{{ item.nombre }}</td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <span class="color-dot" :style="{ background: item.hex, width: '14px', height: '14px' }"></span>
-                    {{ item.colorNombre }}
-                  </div>
-                </td>
-                <td class="text-center">
-                  <span class="badge badge-info">{{ item.stockActual }}</span>
-                </td>
-                <td style="width: 140px;">
-                  <input v-model.number="item.cantidad" type="number" min="1" class="form-input" style="width: 100px; text-align: center;" />
-                </td>
-                <td style="width: 200px;">
-                  <input v-model="item.observacion" type="text" class="form-input" placeholder="Ej: Buen estado" style="font-size: 13px;" />
-                </td>
-                <td>
-                  <button class="btn btn-ghost btn-icon" @click="items.splice(i, 1)">
-                    <X :size="16" style="color: var(--color-danger);" />
-                  </button>
-                </td>
-              </tr>
+              <template v-for="(item, i) in items" :key="i">
+                <tr :class="{ 'paquete-row': item.esPaquete }">
+                  <td>
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium">{{ item.nombre }}</span>
+                      <span class="badge badge-warning" v-if="item.esPaquete" style="font-size: 10px;">📦 PAQUETE</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="flex items-center gap-2">
+                      <span class="color-dot" :style="{ background: item.hex, width: '14px', height: '14px' }"></span>
+                      {{ item.colorNombre }}
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge badge-info">{{ item.stockActual }}</span>
+                  </td>
+                  <td style="width: 140px;">
+                    <input v-model.number="item.cantidad" type="number" min="1" class="form-input" style="width: 100px; text-align: center;" />
+                  </td>
+                  <td style="width: 200px;">
+                    <input v-model="item.observacion" type="text" class="form-input" placeholder="Ej: Buen estado" style="font-size: 13px;" />
+                  </td>
+                  <td>
+                    <button class="btn btn-ghost btn-icon" @click="items.splice(i, 1)">
+                      <X :size="16" style="color: var(--color-danger);" />
+                    </button>
+                  </td>
+                </tr>
+                <!-- Package components -->
+                <tr v-if="item.esPaquete && item.componentes" class="componentes-row">
+                  <td colspan="6">
+                    <div class="componentes-detail">
+                      <span class="componentes-label">Se ingresarán a stock los siguientes componentes:</span>
+                      <div class="componentes-list">
+                        <span class="componente-chip" v-for="c in item.componentes" :key="c.nombre">
+                          <span class="color-dot" :style="{ background: c.hex, width: '10px', height: '10px' }"></span>
+                          {{ c.nombre }} ({{ c.color }}) ×{{ c.cantPorPaquete * item.cantidad }}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
             </tbody>
           </table>
         </div>
@@ -162,9 +186,10 @@ const items = ref([
 ])
 
 const allArticulos = ref([
-  { id: 1, nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Rojo', hex: '#dc3545', stock: 145 },
-  { id: 2, nombre: 'Pintura Latex 1L', colorNombre: 'Blanco', hex: '#ffffff', stock: 48 },
-  { id: 3, nombre: 'Martillo Carpintero', colorNombre: 'Mango Negro', hex: '#343a40', stock: 20 }
+  { id: 1, nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Rojo', hex: '#dc3545', stock: 145, esPaquete: false },
+  { id: 2, nombre: 'Pintura Latex 1L', colorNombre: 'Blanco', hex: '#ffffff', stock: 48, esPaquete: false },
+  { id: 3, nombre: 'Martillo Carpintero', colorNombre: 'Mango Negro', hex: '#343a40', stock: 20, esPaquete: false },
+  { id: 4, nombre: 'Paquete Escolar Básico', colorNombre: 'S/N', hex: '#e9ecef', stock: 25, esPaquete: true }
 ])
 
 const searchResults = computed(() => {
@@ -173,7 +198,15 @@ const searchResults = computed(() => {
 })
 
 function addArticulo(a) {
-  items.value.push({ nombre: a.nombre, colorNombre: a.colorNombre, hex: a.hex, stockActual: a.stock, cantidad: 1, observacion: '' })
+  const item = { nombre: a.nombre, colorNombre: a.colorNombre, hex: a.hex, stockActual: a.stock, cantidad: 1, observacion: '', esPaquete: a.esPaquete || false, componentes: null }
+  if (a.esPaquete) {
+    item.componentes = [
+      { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantPorPaquete: 5 },
+      { nombre: 'Folder Oficio', color: 'Rojo', hex: '#dc3545', cantPorPaquete: 3 },
+      { nombre: 'Lápiz HB', color: 'S/N', hex: '#e9ecef', cantPorPaquete: 2 }
+    ]
+  }
+  items.value.push(item)
   articuloSearch.value = ''
 }
 </script>
@@ -212,4 +245,16 @@ function addArticulo(a) {
 .form-actions { display: flex; justify-content: flex-end; gap: var(--space-3); padding: var(--space-4) 0; }
 .empty-state { padding: var(--space-8); }
 .empty-state svg { width: 48px; height: 48px; }
+
+/* Package support */
+.paquete-row { background: rgba(56, 161, 105, 0.04); }
+.componentes-row td { padding: 0 !important; background: rgba(56, 161, 105, 0.06); }
+.componentes-detail { padding: var(--space-2) var(--space-6); }
+.componentes-label { font-size: var(--font-size-xs); color: #276749; font-weight: 500; margin-right: var(--space-2); }
+.componentes-list { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
+.componente-chip {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: 1px 8px; background: var(--color-white); border: 1px solid var(--color-success-light);
+  border-radius: var(--radius-full); font-size: 11px;
+}
 </style>

@@ -10,6 +10,7 @@
           <option value="">Tipo: Todos</option>
           <option value="SALIDA">Salida</option>
           <option value="ENTRADA">Entrada</option>
+          <option value="BAJA">Baja</option>
         </select>
         <select v-model="filters.almacen" class="form-select" style="width: 180px;">
           <option value="">Almacén: Todos</option>
@@ -50,8 +51,8 @@
               <tr v-for="m in filteredMovimientos" :key="m.codigo">
                 <td class="font-semibold" :style="{ color: m.tipo === 'SALIDA' ? 'var(--color-danger)' : 'var(--color-success)' }">{{ m.codigo }}</td>
                 <td>
-                  <span class="badge" :class="m.tipo === 'SALIDA' ? 'badge-danger' : 'badge-success'">
-                    <component :is="m.tipo === 'SALIDA' ? ArrowUpFromLine : ArrowDownToLine" :size="12" />
+                  <span class="badge" :class="tipoBadgeClass(m.tipo)">
+                    <component :is="tipoIcon(m.tipo)" :size="12" />
                     {{ m.tipo }}
                   </span>
                 </td>
@@ -139,7 +140,18 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Search, FileDown, Eye, ArrowUpFromLine, ArrowDownToLine, X } from 'lucide-vue-next'
+import { Search, FileDown, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus } from 'lucide-vue-next'
+
+function tipoBadgeClass(tipo) {
+  if (tipo === 'SALIDA') return 'badge-danger'
+  if (tipo === 'ENTRADA') return 'badge-success'
+  return 'badge-warning'
+}
+function tipoIcon(tipo) {
+  if (tipo === 'SALIDA') return ArrowUpFromLine
+  if (tipo === 'ENTRADA') return ArrowDownToLine
+  return PackageMinus
+}
 
 const selectedMov = ref(null)
 const filters = ref({ desde: '', hasta: '', tipo: '', almacen: '', search: '' })
@@ -159,6 +171,9 @@ const movimientos = ref([
   },
   { codigo: 'SAL-2026-0010', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Luis Mamani', ci: '99001122', destino: 'Sala de Profesores', totalArticulos: 4, fecha: '25/05/2026 11:00',
     detalles: [ { nombre: 'Cuaderno 50h', color: 'Amarillo', hex: '#ffc107', cantidad: 20, stockAnt: 300, stockPost: 280 }]
+  },
+  { codigo: 'BAJ-2026-0004', tipo: 'BAJA', almacen: 'Almacén Central', solicitante: 'Admin Sistema', ci: '9876543', destino: 'Dañado - Descarte', totalArticulos: 2, fecha: '24/05/2026 15:30',
+    detalles: [ { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantidad: 5, stockAnt: 200, stockPost: 195 }]
   },
   { codigo: 'SAL-2026-0009', tipo: 'SALIDA', almacen: 'Almacén Norte', solicitante: 'Roberto Quispe', ci: '33445566', destino: 'Cancha Deportiva', totalArticulos: 2, fecha: '24/05/2026 15:30',
     detalles: [ { nombre: 'Pintura Latex 1L', color: 'Azul', hex: '#007bff', cantidad: 5, stockAnt: 30, stockPost: 25 }]

@@ -38,6 +38,12 @@ const routes = [
     meta: { title: 'Registro de Entrada', icon: 'ArrowDownToLine', parent: 'Movimientos' }
   },
   {
+    path: '/movimientos/baja',
+    name: 'BajaArticulos',
+    component: () => import('@/views/BajaArticulosView.vue'),
+    meta: { title: 'Baja de Artículos', icon: 'PackageMinus', parent: 'Movimientos' }
+  },
+  {
     path: '/categorias',
     name: 'Categorias',
     component: () => import('@/views/CategoriasView.vue'),
@@ -60,6 +66,12 @@ const routes = [
     name: 'Colores',
     component: () => import('@/views/ColoresView.vue'),
     meta: { title: 'Colores', icon: 'Palette' }
+  },
+  {
+    path: '/atributos',
+    name: 'Atributos',
+    component: () => import('@/views/AtributosView.vue'),
+    meta: { title: 'Atributos', icon: 'Tags' }
   },
   {
     path: '/usuarios',

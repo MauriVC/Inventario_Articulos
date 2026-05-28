@@ -43,6 +43,11 @@
           <ClipboardList :size="20" />
           <span>Historial</span>
         </router-link>
+        <router-link to="/movimientos/baja" class="sidebar-link" :class="{ active: $route.name === 'BajaArticulos' }">
+          <PackageMinus :size="20" />
+          <span>Baja</span>
+          <span class="sidebar-badge badge-baj">BAJ</span>
+        </router-link>
       </div>
 
       <div class="sidebar-section">
@@ -62,6 +67,10 @@
         <router-link to="/colores" class="sidebar-link" :class="{ active: $route.name === 'Colores' }">
           <Palette :size="20" />
           <span>Colores</span>
+        </router-link>
+        <router-link to="/atributos" class="sidebar-link" :class="{ active: $route.name === 'Atributos' }">
+          <Tags :size="20" />
+          <span>Atributos</span>
         </router-link>
       </div>
 
@@ -94,8 +103,8 @@
 import { computed } from 'vue'
 import {
   LayoutDashboard, Warehouse, Package,
-  ArrowUpFromLine, ArrowDownToLine, ClipboardList,
-  FolderTree, Tag, Ruler, Palette,
+  ArrowUpFromLine, ArrowDownToLine, ClipboardList, PackageMinus,
+  FolderTree, Tag, Ruler, Palette, Tags,
   Users, UserCircle, LogOut
 } from 'lucide-vue-next'
 
@@ -222,6 +231,10 @@ const logoUrl = computed(() => logoSrc)
 .badge-ent {
   background: rgba(56, 161, 105, 0.2);
   color: #68D391;
+}
+.badge-baj {
+  background: rgba(237, 137, 54, 0.2);
+  color: #F6AD55;
 }
 
 /* User Info */

@@ -49,7 +49,13 @@
               <template v-for="art in filteredArticulos" :key="art.id">
               <tr>
                 <td class="font-semibold text-primary">{{ art.codigo }}</td>
-                <td class="font-medium">{{ art.nombre }}</td>
+                <td>
+                  <div class="flex items-center gap-2" style="flex-wrap: wrap;">
+                    <span class="font-medium">{{ art.nombre }}</span>
+                    <span class="badge badge-warning" v-if="art.unidad === 'Paquete'" style="font-size: 10px;">📦 PAQUETE</span>
+                    <span class="attr-pill" v-for="attr in art.atributos" :key="attr">{{ attr }}</span>
+                  </div>
+                </td>
                 <td>{{ art.categoria }}</td>
                 <td>{{ art.marca || '—' }}</td>
                 <td>{{ art.unidad }}</td>
@@ -157,11 +163,8 @@
             </div>
             <div class="form-group">
               <label class="form-label">Unidad de Medida *</label>
-              <select class="form-select">
-                <option>Unidad</option>
-                <option>Litro</option>
-                <option>Kilogramo</option>
-                <option>Metro</option>
+              <select v-model="selectedUnidad" class="form-select">
+                <option v-for="u in unidades" :key="u" :value="u">{{ u }}</option>
               </select>
             </div>
           </div>
@@ -170,8 +173,37 @@
             <textarea class="form-input" placeholder="Descripción adicional..."></textarea>
           </div>
 
-          <!-- Color Variants Section -->
-          <div class="variants-section">
+          <!-- Atributos Section (Acabado, Tamaño, Tipo de Hoja...) -->
+          <div class="atributos-section mb-4" v-if="selectedUnidad !== 'Paquete'">
+            <h3 class="section-title"><Tags :size="16" /> Atributos y Datos</h3>
+            <p class="text-sm text-muted mb-3">Asigna propiedades al artículo (acabado, tamaño, tipo de hoja, etc.)</p>
+            <div class="flex items-center gap-3 mb-3">
+              <select v-model="selectedAtributo" class="form-select" style="flex: 1;">
+                <option value="">Seleccionar atributo...</option>
+                <option v-for="a in atributosDisponibles" :key="a.id" :value="a.id">{{ a.nombre }}</option>
+              </select>
+              <select v-model="selectedDato" class="form-select" style="flex: 1;" :disabled="!selectedAtributo">
+                <option value="">{{ selectedAtributo ? 'Seleccionar valor...' : 'Primero seleccione un atributo' }}</option>
+                <option v-for="d in datosDelAtributo" :key="d.id" :value="d.id">{{ d.nombre }}</option>
+              </select>
+              <button class="btn btn-primary" @click="agregarDato" :disabled="!selectedDato">
+                <Plus :size="16" /> Agregar
+              </button>
+            </div>
+            <div class="datos-asignados" v-if="datosAsignados.length > 0">
+              <div class="dato-asignado" v-for="(da, i) in datosAsignados" :key="i">
+                <span class="dato-atributo">{{ da.atributoNombre }}:</span>
+                <span class="dato-valor">{{ da.datoNombre }}</span>
+                <button class="btn btn-ghost btn-icon" @click="datosAsignados.splice(i, 1)" style="padding: 2px;">
+                  <X :size="14" style="color: var(--color-danger);" />
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-muted" v-else>No se han asignado atributos aún. Son opcionales.</p>
+          </div>
+
+          <!-- Color Variants Section (hidden for Paquete) -->
+          <div class="variants-section mb-4" v-if="selectedUnidad !== 'Paquete'">
             <h3 class="font-semibold mb-3" style="color: var(--color-gray-700);">Variantes por Color</h3>
             <p class="text-sm text-muted mb-4">Selecciona los colores disponibles y asigna el stock inicial para cada uno. Si no seleccionas ninguno, se asignará automáticamente "S/N".</p>
             <div class="variant-grid">
@@ -195,6 +227,41 @@
               </div>
             </div>
           </div>
+
+          <!-- Paquete Section (only for unidad = Paquete) -->
+          <div class="paquete-section" v-if="selectedUnidad === 'Paquete'">
+            <h3 class="section-title" style="color: var(--color-warning);"><Boxes :size="16" /> Componentes del Paquete</h3>
+            <p class="text-sm text-muted mb-3">Busca y agrega los artículos que forman parte de este paquete, con su variante de color y cantidad.</p>
+            <!-- Search component -->
+            <div class="form-input-icon mb-3">
+              <Search :size="16" />
+              <input type="text" class="form-input" v-model="paqueteBusqueda" placeholder="Buscar artículo para agregar al paquete..." />
+            </div>
+            <div class="search-results-paq" v-if="paqueteBusqueda.length > 0 && paqueteResultados.length > 0">
+              <div class="search-result-item" v-for="r in paqueteResultados" :key="r.id" @click="agregarComponente(r)">
+                <span class="font-medium">{{ r.nombre }}</span>
+                <span class="text-sm text-muted">{{ r.colorNombre }} — Stock: {{ r.stock }}</span>
+              </div>
+            </div>
+            <!-- Components table -->
+            <div class="table-wrapper" v-if="componentesPaquete.length > 0">
+              <table class="table">
+                <thead><tr><th>Artículo</th><th>Color</th><th>Cantidad por Paquete</th><th></th></tr></thead>
+                <tbody>
+                  <tr v-for="(comp, i) in componentesPaquete" :key="i">
+                    <td class="font-medium">{{ comp.nombre }}</td>
+                    <td><div class="flex items-center gap-2"><span class="color-dot" :style="{ background: comp.hex, width: '14px', height: '14px' }"></span> {{ comp.colorNombre }}</div></td>
+                    <td style="width: 140px;"><input v-model.number="comp.cantidad" type="number" min="1" class="form-input" style="width: 80px; text-align: center;" /></td>
+                    <td><button class="btn btn-ghost btn-icon" @click="componentesPaquete.splice(i, 1)"><X :size="16" style="color: var(--color-danger);" /></button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="empty-paq" v-else>
+              <Boxes :size="32" />
+              <p class="text-sm text-muted">Agrega artículos como componentes del paquete</p>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showModal = false">Cancelar</button>
@@ -210,7 +277,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { Search, Plus, Pencil, Trash2, ChevronDown, X, Save } from 'lucide-vue-next'
+import { Search, Plus, Pencil, Trash2, ChevronDown, X, Save, Tags, Boxes } from 'lucide-vue-next'
 
 const showModal = ref(false)
 const expandedId = ref(null)
@@ -227,30 +294,75 @@ const almacenes = ref([
 
 const categorias = ref(['Cuadernos', 'Hojas y Papelería', 'Pinturas', 'Herramientas', 'Mat. Construcción', 'EPP'])
 const marcas = ref(['Norma', 'Faber-Castell', 'Monopol', 'Stanley', 'Sika'])
+const unidades = ref(['Unidad', 'Paquete', 'Litro', 'Kilogramo', 'Metro', 'Galón', 'Rollo', 'Resma', 'Caja', 'Bolsa'])
+const selectedUnidad = ref('Unidad')
+
+// --- Atributos ---
+const selectedAtributo = ref('')
+const selectedDato = ref('')
+const datosAsignados = ref([])
+const atributosDisponibles = ref([
+  { id: 1, nombre: 'Acabado', datos: [{ id: 1, nombre: 'Anillado' }, { id: 2, nombre: 'Anillado Metálico' }, { id: 3, nombre: 'Empastado' }, { id: 4, nombre: 'Grapado' }, { id: 5, nombre: 'Espiral' }] },
+  { id: 2, nombre: 'Tamaño', datos: [{ id: 6, nombre: 'Carta' }, { id: 7, nombre: 'Oficio' }, { id: 8, nombre: 'Media Carta' }, { id: 9, nombre: 'A4' }, { id: 10, nombre: 'A5' }] },
+  { id: 3, nombre: 'Tipo de Hoja', datos: [{ id: 11, nombre: 'Blanca' }, { id: 12, nombre: 'Cuadriculada' }, { id: 13, nombre: 'Rayada' }, { id: 14, nombre: 'Punteada' }] },
+  { id: 4, nombre: 'Material', datos: [{ id: 15, nombre: 'Madera' }, { id: 16, nombre: 'Metal' }, { id: 17, nombre: 'Plástico' }] },
+  { id: 5, nombre: 'Gramaje', datos: [{ id: 18, nombre: '75 g/m²' }, { id: 19, nombre: '90 g/m²' }, { id: 20, nombre: '120 g/m²' }] }
+])
+const datosDelAtributo = computed(() => {
+  if (!selectedAtributo.value) return []
+  const attr = atributosDisponibles.value.find(a => a.id === selectedAtributo.value)
+  return attr ? attr.datos : []
+})
+function agregarDato() {
+  const attr = atributosDisponibles.value.find(a => a.id === selectedAtributo.value)
+  const dato = datosDelAtributo.value.find(d => d.id === selectedDato.value)
+  if (attr && dato && !datosAsignados.value.find(x => x.datoId === dato.id)) {
+    datosAsignados.value.push({ atributoNombre: attr.nombre, datoNombre: dato.nombre, datoId: dato.id })
+  }
+  selectedDato.value = ''
+}
+
+// --- Paquete ---
+const paqueteBusqueda = ref('')
+const componentesPaquete = ref([])
+const articulosParaPaquete = ref([
+  { id: 101, nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Azul', hex: '#007bff', stock: 200 },
+  { id: 102, nombre: 'Folder Oficio', colorNombre: 'Rojo', hex: '#dc3545', stock: 45 },
+  { id: 103, nombre: 'Resma Papel Bond Carta', colorNombre: 'S/N', hex: '#e9ecef', stock: 120 },
+  { id: 104, nombre: 'Lápiz HB', colorNombre: 'S/N', hex: '#e9ecef', stock: 500 }
+])
+const paqueteResultados = computed(() => {
+  if (!paqueteBusqueda.value) return []
+  return articulosParaPaquete.value.filter(a => a.nombre.toLowerCase().includes(paqueteBusqueda.value.toLowerCase()))
+})
+function agregarComponente(r) {
+  componentesPaquete.value.push({ nombre: r.nombre, colorNombre: r.colorNombre, hex: r.hex, cantidad: 1 })
+  paqueteBusqueda.value = ''
+}
 
 const articulos = ref([
-  { id: 1, codigo: 'CUA-001', nombre: 'Cuaderno 100h Tapa Dura', categoria: 'Cuadernos', marca: 'Norma', unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 430, estado: 'Activo', variantes: [
+  { id: 1, codigo: 'CUA-001', nombre: 'Cuaderno 100h Tapa Dura', categoria: 'Cuadernos', marca: 'Norma', unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 430, estado: 'Activo', atributos: ['Anillado', 'Carta', 'Cuadriculada'], variantes: [
     { color: 'Azul', hex: '#007bff', stock: 200 }, { color: 'Rojo', hex: '#dc3545', stock: 150 }, { color: 'Verde', hex: '#28a745', stock: 80 }
   ]},
-  { id: 2, codigo: 'CUA-002', nombre: 'Cuaderno 50h Económico', categoria: 'Cuadernos', marca: 'Norma', unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 600, estado: 'Activo', variantes: [
+  { id: 2, codigo: 'CUA-002', nombre: 'Cuaderno 50h Económico', categoria: 'Cuadernos', marca: 'Norma', unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 600, estado: 'Activo', atributos: ['Grapado', 'Oficio', 'Blanca'], variantes: [
     { color: 'Amarillo', hex: '#ffc107', stock: 300 }, { color: 'Celeste', hex: '#17a2b8', stock: 300 }
   ]},
-  { id: 3, codigo: 'PIN-001', nombre: 'Pintura Latex 1L', categoria: 'Pinturas', marca: 'Monopol', unidad: 'Litro', almacen: 'Almacén Norte', stockTotal: 105, estado: 'Activo', variantes: [
+  { id: 3, codigo: 'PIN-001', nombre: 'Pintura Latex 1L', categoria: 'Pinturas', marca: 'Monopol', unidad: 'Litro', almacen: 'Almacén Norte', stockTotal: 105, estado: 'Activo', atributos: [], variantes: [
     { color: 'Azul', hex: '#007bff', stock: 30 }, { color: 'Blanco', hex: '#ffffff', stock: 50 }, { color: 'Rojo', hex: '#dc3545', stock: 25 }
   ]},
-  { id: 4, codigo: 'HER-001', nombre: 'Martillo Carpintero', categoria: 'Herramientas', marca: 'Stanley', unidad: 'Unidad', almacen: 'Almacén Norte', stockTotal: 35, estado: 'Activo', variantes: [
+  { id: 4, codigo: 'HER-001', nombre: 'Martillo Carpintero', categoria: 'Herramientas', marca: 'Stanley', unidad: 'Unidad', almacen: 'Almacén Norte', stockTotal: 35, estado: 'Activo', atributos: ['Madera'], variantes: [
     { color: 'Mango Rojo', hex: '#dc3545', stock: 15 }, { color: 'Mango Negro', hex: '#343a40', stock: 20 }
   ]},
-  { id: 5, codigo: 'FIE-001', nombre: 'Fierro Corrugado 3/8', categoria: 'Mat. Construcción', marca: null, unidad: 'Metro', almacen: 'Almacén Norte', stockTotal: 500, estado: 'Activo', variantes: [
+  { id: 5, codigo: 'FIE-001', nombre: 'Fierro Corrugado 3/8', categoria: 'Mat. Construcción', marca: null, unidad: 'Metro', almacen: 'Almacén Norte', stockTotal: 500, estado: 'Activo', atributos: [], variantes: [
     { color: 'S/N', hex: '#e9ecef', stock: 500 }
   ]},
-  { id: 6, codigo: 'FOL-001', nombre: 'Folder Oficio', categoria: 'Hojas y Papelería', marca: null, unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 95, estado: 'Activo', variantes: [
+  { id: 6, codigo: 'FOL-001', nombre: 'Folder Oficio', categoria: 'Hojas y Papelería', marca: null, unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 95, estado: 'Activo', atributos: ['Oficio'], variantes: [
     { color: 'Azul', hex: '#007bff', stock: 50 }, { color: 'Rojo', hex: '#dc3545', stock: 45 }
   ]},
-  { id: 7, codigo: 'CEM-001', nombre: 'Cemento Portland 50kg', categoria: 'Mat. Construcción', marca: null, unidad: 'Unidad', almacen: 'Almacén Norte', stockTotal: 80, estado: 'Activo', variantes: [
-    { color: 'S/N', hex: '#e9ecef', stock: 80 }
+  { id: 7, codigo: 'PAQ-001', nombre: 'Paquete Escolar Básico', categoria: 'Cuadernos', marca: null, unidad: 'Paquete', almacen: 'Almacén Central', stockTotal: 25, estado: 'Activo', atributos: [], variantes: [
+    { color: 'S/N', hex: '#e9ecef', stock: 25 }
   ]},
-  { id: 8, codigo: 'HOJ-001', nombre: 'Resma Papel Bond Carta', categoria: 'Hojas y Papelería', marca: 'Faber-Castell', unidad: 'Paquete', almacen: 'Almacén Central', stockTotal: 120, estado: 'Activo', variantes: [
+  { id: 8, codigo: 'HOJ-001', nombre: 'Resma Papel Bond Carta', categoria: 'Hojas y Papelería', marca: 'Faber-Castell', unidad: 'Resma', almacen: 'Almacén Central', stockTotal: 120, estado: 'Activo', atributos: ['Carta', 'Blanca', '75 g/m²'], variantes: [
     { color: 'S/N', hex: '#e9ecef', stock: 120 }
   ]}
 ])
@@ -285,6 +397,17 @@ function toggleExpand(id) {
 <style scoped>
 .rotate-180 { transform: rotate(180deg); }
 
+/* Attribute pills in table */
+.attr-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  background: var(--color-primary-lightest);
+  color: var(--color-primary-dark);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 500;
+}
+
 .variants-detail {
   display: flex;
   flex-wrap: wrap;
@@ -305,6 +428,49 @@ function toggleExpand(id) {
 .expanded-row td {
   padding: 0 !important;
   background: var(--color-gray-50);
+}
+
+/* Section titles */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--color-gray-700);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--space-2);
+}
+
+/* Atributos section */
+.atributos-section {
+  background: var(--color-gray-50);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  border: 1px solid var(--color-gray-200);
+}
+.datos-asignados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.dato-asignado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-white);
+  border: 1px solid var(--color-primary-lighter);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+}
+.dato-atributo {
+  color: var(--color-gray-500);
+  font-weight: 400;
+}
+.dato-valor {
+  color: var(--color-primary-dark);
+  font-weight: 600;
 }
 
 /* Modal variants */
@@ -345,5 +511,40 @@ function toggleExpand(id) {
   font-size: var(--font-size-xs);
   margin-left: auto;
   text-align: center;
+}
+
+/* Paquete section */
+.paquete-section {
+  background: rgba(237, 137, 54, 0.05);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  border: 1px solid var(--color-warning-light);
+}
+.search-results-paq {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: var(--space-3);
+  max-height: 180px;
+  overflow-y: auto;
+}
+.search-results-paq .search-result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.search-results-paq .search-result-item:hover { background: var(--color-warning-bg); }
+.search-results-paq .search-result-item + .search-result-item { border-top: 1px solid var(--color-gray-100); }
+.empty-paq {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  color: var(--color-gray-400);
 }
 </style>
