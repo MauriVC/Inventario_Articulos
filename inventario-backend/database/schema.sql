@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS movimiento_detalles (
 -- Color por defecto "S/N" para artículos sin color
 INSERT INTO colores (nombre, codigo_hex) VALUES ('S/N', '#E9ECEF');
 
--- Unidades de medida iniciales (incluye "Paquete" para activar la sección de componentes)
+-- Unidades de medida iniciales
 INSERT INTO unidad_medidas (nombre, abreviatura) VALUES
   ('Unidad', 'Ud'),
   ('Litro', 'L'),

@@ -1,0 +1,159 @@
+/**
+ * Rutas — Movimientos (Salida, Entrada, Baja)
+ * Operaciones transaccionales que actualizan el stock
+ */
+const { pool } = require('../config/database');
+
+async function movimientosRoutes(fastify) {
+
+  // GET /api/movimientos — Historial con filtros
+  fastify.get('/', async (request) => {
+    const { tipo, almacen_id, desde, hasta, search, limit, offset } = request.query;
+
+    let where = '1=1';
+    const params = [];
+    if (tipo) { where += ' AND m.tipo = ?'; params.push(tipo); }
+    if (almacen_id) { where += ' AND m.almacen_id = ?'; params.push(almacen_id); }
+    if (desde) { where += ' AND m.fecha_movimiento >= ?'; params.push(desde); }
+    if (hasta) { where += ' AND m.fecha_movimiento <= ?'; params.push(`${hasta} 23:59:59`); }
+    if (search) {
+      where += ' AND (m.codigo LIKE ? OR m.solicitante_nombre LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // Contar total para paginación
+    const [countResult] = await pool.query(`SELECT COUNT(*) AS total FROM movimientos m WHERE ${where}`, params);
+
+    const [movimientos] = await pool.query(`
+      SELECT m.id, m.codigo, m.tipo, m.fecha_movimiento,
+             m.solicitante_ci, m.solicitante_nombre, m.solicitante_telefono,
+             m.destino_procedencia, m.motivo_baja, m.observacion,
+             m.almacen_id, alm.nombre AS almacen_nombre,
+             m.paquete_id, paq.nombre AS paquete_nombre,
+             (SELECT COUNT(*) FROM movimiento_detalles md WHERE md.movimiento_id = m.id) AS total_articulos
+      FROM movimientos m
+      JOIN almacenes alm ON m.almacen_id = alm.id
+      LEFT JOIN paquetes paq ON m.paquete_id = paq.id
+      WHERE ${where}
+      ORDER BY m.fecha_movimiento DESC
+      LIMIT ? OFFSET ?
+    `, [...params, Number(limit) || 20, Number(offset) || 0]);
+
+    return { data: movimientos, total: countResult[0].total };
+  });
+
+  // GET /api/movimientos/:id — Detalle con artículos
+  fastify.get('/:id', async (request, reply) => {
+    const { id } = request.params;
+    const [movimientos] = await pool.query(`
+      SELECT m.*, alm.nombre AS almacen_nombre, paq.nombre AS paquete_nombre
+      FROM movimientos m
+      JOIN almacenes alm ON m.almacen_id = alm.id
+      LEFT JOIN paquetes paq ON m.paquete_id = paq.id
+      WHERE m.id = ?
+    `, [id]);
+    if (movimientos.length === 0) return reply.code(404).send({ error: 'Movimiento no encontrado' });
+
+    const [detalles] = await pool.query(`
+      SELECT md.cantidad, md.stock_anterior, md.stock_posterior, md.observacion,
+             a.nombre AS articulo_nombre, a.requiere_devolucion,
+             c.nombre AS color_nombre, c.codigo_hex
+      FROM movimiento_detalles md
+      JOIN articulo_items ai ON md.articulo_item_id = ai.id
+      JOIN articulos a ON ai.articulo_id = a.id
+      JOIN colores c ON ai.color_id = c.id
+      WHERE md.movimiento_id = ?
+    `, [id]);
+
+    return { data: { ...movimientos[0], detalles } };
+  });
+
+  // POST /api/movimientos — Registrar movimiento (SALIDA, ENTRADA o BAJA)
+  fastify.post('/', async (request, reply) => {
+    const {
+      tipo, almacen_id, paquete_id,
+      solicitante_ci, solicitante_nombre, solicitante_telefono,
+      destino_procedencia, motivo_baja, observacion,
+      detalles // [{ articulo_item_id, cantidad }]
+    } = request.body;
+
+    if (!tipo || !almacen_id || !detalles || detalles.length === 0) {
+      return reply.code(400).send({ error: 'tipo, almacen_id y detalles son obligatorios' });
+    }
+    if (!['ENTRADA', 'SALIDA', 'BAJA'].includes(tipo)) {
+      return reply.code(400).send({ error: 'tipo debe ser ENTRADA, SALIDA o BAJA' });
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // Generar código auto-incremental
+      const prefix = tipo === 'SALIDA' ? 'SAL' : tipo === 'ENTRADA' ? 'ENT' : 'BAJ';
+      const [lastCode] = await conn.query(
+        "SELECT codigo FROM movimientos WHERE codigo LIKE ? ORDER BY id DESC LIMIT 1",
+        [`${prefix}-2026-%`]
+      );
+      let nextNum = 1;
+      if (lastCode.length > 0) {
+        const parts = lastCode[0].codigo.split('-');
+        nextNum = parseInt(parts[2], 10) + 1;
+      }
+      const codigo = `${prefix}-2026-${String(nextNum).padStart(4, '0')}`;
+
+      // Insertar cabecera
+      const [movResult] = await conn.query(
+        `INSERT INTO movimientos (codigo, tipo, almacen_id, usuario_id, paquete_id,
+         solicitante_ci, solicitante_nombre, solicitante_telefono,
+         destino_procedencia, motivo_baja, observacion)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [codigo, tipo, almacen_id, 1, paquete_id || null,
+         solicitante_ci || null, solicitante_nombre || null, solicitante_telefono || null,
+         destino_procedencia || null, motivo_baja || null, observacion || null]
+      );
+      const movimientoId = movResult.insertId;
+
+      // Procesar cada detalle: actualizar stock + insertar detalle
+      for (const det of detalles) {
+        // Obtener stock actual
+        const [itemRows] = await conn.query('SELECT stock FROM articulo_items WHERE id = ? FOR UPDATE', [det.articulo_item_id]);
+        if (itemRows.length === 0) throw new Error(`articulo_item_id ${det.articulo_item_id} no encontrado`);
+
+        const stockAnterior = itemRows[0].stock;
+        let stockPosterior;
+
+        if (tipo === 'ENTRADA') {
+          stockPosterior = stockAnterior + det.cantidad;
+        } else {
+          // SALIDA o BAJA: descontar
+          if (stockAnterior < det.cantidad) {
+            throw new Error(`Stock insuficiente para articulo_item_id ${det.articulo_item_id}. Disponible: ${stockAnterior}, Solicitado: ${det.cantidad}`);
+          }
+          stockPosterior = stockAnterior - det.cantidad;
+        }
+
+        // Actualizar stock
+        await conn.query('UPDATE articulo_items SET stock = ? WHERE id = ?', [stockPosterior, det.articulo_item_id]);
+
+        // Insertar detalle
+        await conn.query(
+          'INSERT INTO movimiento_detalles (movimiento_id, articulo_item_id, cantidad, stock_anterior, stock_posterior, observacion) VALUES (?, ?, ?, ?, ?, ?)',
+          [movimientoId, det.articulo_item_id, det.cantidad, stockAnterior, stockPosterior, det.observacion || null]
+        );
+      }
+
+      await conn.commit();
+      return reply.code(201).send({ data: { id: movimientoId, codigo, tipo } });
+    } catch (err) {
+      await conn.rollback();
+      if (err.message.includes('Stock insuficiente')) {
+        return reply.code(409).send({ error: err.message });
+      }
+      throw err;
+    } finally {
+      conn.release();
+    }
+  });
+}
+
+module.exports = movimientosRoutes;

@@ -1,15 +1,19 @@
 {
-    "name": "inventario-backend",
-    "version": "1.0.0",
-    "description": "API para inventario",
-    "main": "index.js",
-    "scripts": {
-        "dev": "node index.js"
-    },
-    "dependencies": {
-        "fastify": "^4.26.2",
-        "@supabase/supabase-js": "^2.39.3",
-        "dotenv": "^16.4.5",
-        "mysql2": "^3.0.0"
-    }
+  "name": "inventario-backend",
+  "version": "1.0.0",
+  "description": "API REST para el Sistema de Control de Inventario - U.E. Corazón Nuevo",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "fastify": "^4.26.2",
+    "@fastify/cors": "^9.0.1",
+    "mysql2": "^3.0.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
 }

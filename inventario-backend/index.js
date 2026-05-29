@@ -1,35 +1,50 @@
 require('dotenv').config();
+
 const fastify = require('fastify')({ logger: true });
-const mysql = require('mysql2/promise'); // Librería para MySQL
+const { testConnection } = require('./src/config/database');
+const corsPlugin = require('./src/plugins/cors');
+const registerRoutes = require('./src/routes');
 
-// Crear la conexión (pool) a la base de datos
-const db = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
-    ssl: { rejectUnauthorized: false } // Aiven requiere conexión segura
+// ─── Plugins ───
+fastify.register(corsPlugin);
+
+// ─── Rutas ───
+fastify.register(registerRoutes);
+
+// ─── Health Check ───
+fastify.get('/api/health', async () => {
+  return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
-// Ruta de prueba para ver si la BD responde
-fastify.get('/test-db', async (request, reply) => {
-    try {
-        const [rows] = await db.query('SELECT 1 + 1 AS resultado');
-        return { status: 'Conexión exitosa', data: rows };
-    } catch (err) {
-        return { status: 'Error de conexión', error: err.message };
-    }
+// ─── Error Handler Global ───
+fastify.setErrorHandler((error, request, reply) => {
+  fastify.log.error(error);
+  const statusCode = error.statusCode || 500;
+  reply.code(statusCode).send({
+    error: statusCode === 500 ? 'Error interno del servidor' : error.message,
+    ...(process.env.NODE_ENV !== 'production' && { details: error.message })
+  });
 });
 
-// Iniciar servidor
+// ─── Arrancar Servidor ───
 const start = async () => {
+  try {
+    // Verificar conexión a BD (no bloquea el arranque)
     try {
-        await fastify.listen({ port: 3000, host: '0.0.0.0' });
-        console.log('Servidor escuchando en http://localhost:3000');
-    } catch (err) {
-        fastify.log.error(err);
-        process.exit(1);
+      await testConnection();
+      fastify.log.info('✓ Conexión a MySQL (Aiven) verificada');
+    } catch (dbErr) {
+      fastify.log.warn(`⚠ No se pudo conectar a MySQL: ${dbErr.message}`);
+      fastify.log.warn('  El servidor arrancará pero las rutas que usan BD fallarán');
     }
+
+    const port = Number(process.env.PORT) || 3000;
+    await fastify.listen({ port, host: '0.0.0.0' });
+    fastify.log.info(`✓ API escuchando en http://localhost:${port}`);
+  } catch (err) {
+    fastify.log.error(`✗ Error al iniciar el servidor: ${err.message}`);
+    process.exit(1);
+  }
 };
+
 start();
