@@ -2,11 +2,15 @@ require('dotenv').config();
 
 const fastify = require('fastify')({ logger: true });
 const { testConnection } = require('./src/config/database');
-const corsPlugin = require('./src/plugins/cors');
+const cors = require('@fastify/cors');
 const registerRoutes = require('./src/routes');
 
-// ─── Plugins ───
-fastify.register(corsPlugin);
+// ─── CORS ───
+fastify.register(cors, {
+  origin: true, // Permite cualquier origen en desarrollo
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  credentials: true
+});
 
 // ─── Rutas ───
 fastify.register(registerRoutes);

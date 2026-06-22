@@ -56,16 +56,16 @@
                     {{ m.tipo }}
                   </span>
                 </td>
-                <td>{{ m.almacen }}</td>
-                <td class="font-medium">{{ m.solicitante }}</td>
-                <td class="text-muted text-sm">{{ m.ci }}</td>
-                <td>{{ m.destino }}</td>
+                <td>{{ m.almacen_nombre }}</td>
+                <td class="font-medium">{{ m.solicitante_nombre || '—' }}</td>
+                <td class="text-muted text-sm">{{ m.solicitante_ci || '—' }}</td>
+                <td>{{ m.destino_procedencia || '—' }}</td>
                 <td class="text-center">
-                  <span class="badge badge-primary">{{ m.totalArticulos }}</span>
+                  <span class="badge badge-primary">{{ m.total_articulos }}</span>
                 </td>
-                <td class="text-muted text-sm">{{ m.fecha }}</td>
+                <td class="text-muted text-sm">{{ new Date(m.fecha_movimiento).toLocaleString('es-ES') }}</td>
                 <td>
-                  <button class="btn btn-ghost btn-icon" title="Ver detalle" @click="selectedMov = m">
+                  <button class="btn btn-ghost btn-icon" title="Ver detalle" @click="openDetalle(m.id)">
                     <Eye :size="16" />
                   </button>
                 </td>
@@ -101,19 +101,19 @@
         <div class="modal-body">
           <div class="grid-2 mb-4">
             <div><span class="text-sm text-muted">Código</span><p class="font-semibold">{{ selectedMov.codigo }}</p></div>
-            <div><span class="text-sm text-muted">Fecha</span><p class="font-medium">{{ selectedMov.fecha }}</p></div>
-            <div><span class="text-sm text-muted">Solicitante</span><p class="font-medium">{{ selectedMov.solicitante }} (CI: {{ selectedMov.ci }})</p></div>
-            <div><span class="text-sm text-muted">{{ selectedMov.tipo === 'SALIDA' ? 'Destino' : 'Procedencia' }}</span><p class="font-medium">{{ selectedMov.destino }}</p></div>
-            <div><span class="text-sm text-muted">Almacén</span><p class="font-medium">{{ selectedMov.almacen }}</p></div>
-            <div><span class="text-sm text-muted">Registrado por</span><p class="font-medium">Juan C. Pérez</p></div>
+            <div><span class="text-sm text-muted">Fecha</span><p class="font-medium">{{ new Date(selectedMov.fecha_movimiento).toLocaleString('es-ES') }}</p></div>
+            <div><span class="text-sm text-muted">Solicitante</span><p class="font-medium">{{ selectedMov.solicitante_nombre || '—' }} <span v-if="selectedMov.solicitante_ci">(CI: {{ selectedMov.solicitante_ci }})</span></p></div>
+            <div><span class="text-sm text-muted">{{ selectedMov.tipo === 'ENTRADA' ? 'Procedencia' : 'Destino' }}</span><p class="font-medium">{{ selectedMov.destino_procedencia || '—' }}</p></div>
+            <div><span class="text-sm text-muted">Almacén</span><p class="font-medium">{{ selectedMov.almacen_nombre }}</p></div>
+            <div><span class="text-sm text-muted">Observación</span><p class="font-medium">{{ selectedMov.observacion || 'Ninguna' }}</p></div>
           </div>
 
-          <div class="paquete-info mb-4" v-if="selectedMov.paqueteNombre">
+          <div class="paquete-info mb-4" v-if="selectedMov.paquete_nombre">
             <div class="flex items-center gap-2" style="padding: var(--space-3); background: rgba(237, 137, 54, 0.05); border: 1px solid var(--color-warning-light); border-radius: var(--radius-md);">
               <Boxes :size="18" style="color: #dd6b20;" />
               <div>
                 <p class="text-sm text-muted" style="line-height: 1;">Salida originada desde el paquete</p>
-                <p class="font-medium" style="color: #dd6b20;">{{ selectedMov.paqueteNombre }}</p>
+                <p class="font-medium" style="color: #dd6b20;">{{ selectedMov.paquete_nombre }}</p>
               </div>
             </div>
           </div>
@@ -124,20 +124,20 @@
               <tr><th>Artículo</th><th>Color</th><th class="text-center">Cantidad</th><th class="text-center">Stock Ant.</th><th class="text-center">Stock Post.</th><th class="text-center">Devolución</th></tr>
             </thead>
             <tbody>
-              <tr v-for="d in selectedMov.detalles" :key="d.nombre">
-                <td class="font-medium">{{ d.nombre }}</td>
+              <tr v-for="(d, i) in selectedMov.detalles" :key="i">
+                <td class="font-medium">{{ d.articulo_nombre }}</td>
                 <td>
                   <div class="flex items-center gap-2">
-                    <span class="color-dot" :style="{ background: d.hex, width: '14px', height: '14px' }"></span>
-                    {{ d.color }}
+                    <span class="color-dot" :style="{ background: d.codigo_hex, width: '14px', height: '14px' }"></span>
+                    {{ d.color_nombre }}
                   </div>
                 </td>
                 <td class="font-semibold text-center">{{ d.cantidad }}</td>
-                <td class="text-center text-muted">{{ d.stockAnt }}</td>
-                <td class="text-center font-medium">{{ d.stockPost }}</td>
+                <td class="text-center text-muted">{{ d.stock_anterior }}</td>
+                <td class="text-center font-medium">{{ d.stock_posterior }}</td>
                 <td class="text-center">
-                  <span v-if="d.requiereDevolucion" class="badge badge-devolucion">
-                    <RotateCcw :size="10" /> PENDIENTE
+                  <span v-if="d.requiere_devolucion" class="badge badge-devolucion">
+                    <RotateCcw :size="10" /> DEVUELVE
                   </span>
                   <span v-else class="text-xs text-muted">—</span>
                 </td>
@@ -155,8 +155,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Search, FileDown, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw } from 'lucide-vue-next'
+import { api } from '@/api'
 
 function tipoBadgeClass(tipo) {
   if (tipo === 'SALIDA') return 'badge-danger'
@@ -172,51 +173,34 @@ function tipoIcon(tipo) {
 const selectedMov = ref(null)
 const filters = ref({ desde: '', hasta: '', tipo: '', almacen: '', search: '' })
 
-const movimientos = ref([
-  { codigo: 'SAL-2026-0013', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Juan Morales', ci: '88776655', destino: 'Taller 2B', totalArticulos: 5, fecha: '27/05/2026 23:21',
-    paqueteNombre: 'Paquete Carpintería',
-    detalles: [ 
-      { nombre: 'Martillo Carpintero', color: 'Mango Rojo', hex: '#dc3545', cantidad: 1, stockAnt: 15, stockPost: 14, requiereDevolucion: true }, 
-      { nombre: 'Clavos 2 pulgadas', color: 'S/N', hex: '#e9ecef', cantidad: 50, stockAnt: 300, stockPost: 250, requiereDevolucion: false },
-      { nombre: 'Cuaderno 100h Tapa Dura', color: 'Azul', hex: '#007bff', cantidad: 1, stockAnt: 200, stockPost: 199, requiereDevolucion: false },
-      { nombre: 'Lápiz HB', color: 'S/N', hex: '#e9ecef', cantidad: 1, stockAnt: 500, stockPost: 499, requiereDevolucion: false },
-      { nombre: 'Cinta Métrica 5m', color: 'S/N', hex: '#e9ecef', cantidad: 1, stockAnt: 25, stockPost: 24, requiereDevolucion: true }
-    ]
-  },
-  { codigo: 'SAL-2026-0012', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Carlos Pérez', ci: '12345678', destino: 'Aula 3A', totalArticulos: 3, fecha: '26/05/2026 10:30',
-    detalles: [ { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantidad: 10, stockAnt: 200, stockPost: 190 }, { nombre: 'Cuaderno 100h', color: 'Rojo', hex: '#dc3545', cantidad: 5, stockAnt: 150, stockPost: 145 }, { nombre: 'Folder Oficio', color: 'Azul', hex: '#007bff', cantidad: 20, stockAnt: 50, stockPost: 30 }]
-  },
-  { codigo: 'ENT-2026-0008', tipo: 'ENTRADA', almacen: 'Almacén Central', solicitante: 'María López', ci: '87654321', destino: 'Laboratorio', totalArticulos: 2, fecha: '26/05/2026 09:15',
-    detalles: [ { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantidad: 8, stockAnt: 190, stockPost: 198 }, { nombre: 'Folder Oficio', color: 'Azul', hex: '#007bff', cantidad: 15, stockAnt: 30, stockPost: 45 }]
-  },
-  { codigo: 'SAL-2026-0011', tipo: 'SALIDA', almacen: 'Almacén Norte', solicitante: 'Pedro Gómez', ci: '11223344', destino: 'Taller Mecánica', totalArticulos: 5, fecha: '25/05/2026 16:45',
-    detalles: [ { nombre: 'Martillo Carpintero', color: 'Mango Rojo', hex: '#dc3545', cantidad: 2, stockAnt: 15, stockPost: 13 }, { nombre: 'Pintura Latex 1L', color: 'Blanco', hex: '#ffffff', cantidad: 3, stockAnt: 50, stockPost: 47 }]
-  },
-  { codigo: 'ENT-2026-0007', tipo: 'ENTRADA', almacen: 'Almacén Central', solicitante: 'Ana Torres', ci: '55667788', destino: 'Dirección', totalArticulos: 1, fecha: '25/05/2026 14:20',
-    detalles: [ { nombre: 'Resma Papel Bond', color: 'S/N', hex: '#e9ecef', cantidad: 5, stockAnt: 115, stockPost: 120 }]
-  },
-  { codigo: 'SAL-2026-0010', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Luis Mamani', ci: '99001122', destino: 'Sala de Profesores', totalArticulos: 4, fecha: '25/05/2026 11:00',
-    detalles: [ { nombre: 'Cuaderno 50h', color: 'Amarillo', hex: '#ffc107', cantidad: 20, stockAnt: 300, stockPost: 280 }]
-  },
-  { codigo: 'BAJ-2026-0004', tipo: 'BAJA', almacen: 'Almacén Central', solicitante: 'Admin Sistema', ci: '9876543', destino: 'Dañado - Descarte', totalArticulos: 2, fecha: '24/05/2026 15:30',
-    detalles: [ { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantidad: 5, stockAnt: 200, stockPost: 195 }]
-  },
-  { codigo: 'SAL-2026-0009', tipo: 'SALIDA', almacen: 'Almacén Norte', solicitante: 'Roberto Quispe', ci: '33445566', destino: 'Cancha Deportiva', totalArticulos: 2, fecha: '24/05/2026 15:30',
-    detalles: [ { nombre: 'Pintura Latex 1L', color: 'Azul', hex: '#007bff', cantidad: 5, stockAnt: 30, stockPost: 25 }]
-  },
-  { codigo: 'ENT-2026-0006', tipo: 'ENTRADA', almacen: 'Almacén Norte', solicitante: 'Pedro Gómez', ci: '11223344', destino: 'Taller Mecánica', totalArticulos: 2, fecha: '24/05/2026 09:00',
-    detalles: [ { nombre: 'Martillo Carpintero', color: 'Mango Rojo', hex: '#dc3545', cantidad: 2, stockAnt: 13, stockPost: 15 }]
-  },
-  { codigo: 'SAL-2026-0008', tipo: 'SALIDA', almacen: 'Almacén Central', solicitante: 'Carmen Flores', ci: '77889900', destino: 'Aula 5B', totalArticulos: 3, fecha: '23/05/2026 10:15',
-    detalles: []
+const movimientos = ref([])
+
+onMounted(async () => {
+  try {
+    const res = await api.getMovimientos()
+    movimientos.value = res.data
+  } catch (error) {
+    console.error("Error cargando historial:", error)
   }
-])
+})
+
+async function openDetalle(id) {
+  try {
+    const res = await api.getMovimiento(id)
+    selectedMov.value = res.data
+  } catch (error) {
+    console.error("Error cargando detalle:", error)
+    alert("No se pudo cargar el detalle del movimiento.")
+  }
+}
 
 const filteredMovimientos = computed(() => {
   return movimientos.value.filter(m => {
     const matchTipo = !filters.value.tipo || m.tipo === filters.value.tipo
-    const matchAlmacen = !filters.value.almacen || m.almacen === filters.value.almacen
-    const matchSearch = !filters.value.search || m.codigo.toLowerCase().includes(filters.value.search.toLowerCase()) || m.solicitante.toLowerCase().includes(filters.value.search.toLowerCase())
+    const matchAlmacen = !filters.value.almacen || m.almacen_nombre === filters.value.almacen
+    const matchSearch = !filters.value.search || 
+                        m.codigo.toLowerCase().includes(filters.value.search.toLowerCase()) || 
+                        (m.solicitante_nombre && m.solicitante_nombre.toLowerCase().includes(filters.value.search.toLowerCase()))
     return matchTipo && matchAlmacen && matchSearch
   })
 })

@@ -5,7 +5,7 @@
       <div>
         <p class="text-muted">Gestiona los almacenes del sistema</p>
       </div>
-      <button class="btn btn-primary" @click="showModal = true">
+      <button class="btn btn-primary" @click="showModal = true" v-if="auth.isSuperAdmin">
         <Plus :size="18" />
         Nuevo Almacén
       </button>
@@ -24,7 +24,7 @@
                 <th>Descripción</th>
                 <th>Artículos</th>
                 <th>Estado</th>
-                <th>Acciones</th>
+                <th v-if="auth.isSuperAdmin">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -41,7 +41,7 @@
                     {{ almacen.estado }}
                   </span>
                 </td>
-                <td>
+                <td v-if="auth.isSuperAdmin">
                   <div class="flex gap-1">
                     <button class="btn btn-ghost btn-icon" title="Editar" @click="editAlmacen(almacen)">
                       <Pencil :size="16" />
@@ -103,6 +103,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
+import { auth } from '@/auth'
 
 const showModal = ref(false)
 const editingId = ref(null)

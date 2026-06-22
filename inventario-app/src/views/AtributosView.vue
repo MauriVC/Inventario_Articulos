@@ -46,10 +46,10 @@
                     <button class="btn btn-ghost btn-icon" title="Agregar valor" @click="openDatoModal(attr)">
                       <PlusCircle :size="16" style="color: var(--color-success);" />
                     </button>
-                    <button class="btn btn-ghost btn-icon" title="Editar" @click="openAtributoModal(attr)">
+                    <button class="btn btn-ghost btn-icon" title="Editar" @click="openAtributoModal(attr)" v-if="auth.isAdmin">
                       <Pencil :size="16" />
                     </button>
-                    <button class="btn btn-ghost btn-icon" title="Eliminar">
+                    <button class="btn btn-ghost btn-icon" title="Eliminar" v-if="auth.isAdmin">
                       <Trash2 :size="16" style="color: var(--color-danger);" />
                     </button>
                   </div>
@@ -70,7 +70,7 @@
                     <div class="datos-grid">
                       <div class="dato-card" v-for="d in attr.datos" :key="d.id">
                         <span class="dato-card-name">{{ d.nombre }}</span>
-                        <div class="dato-card-actions">
+                        <div class="dato-card-actions" v-if="auth.isAdmin">
                           <button class="btn btn-ghost btn-icon" title="Editar" @click="editDato(attr, d)">
                             <Pencil :size="14" />
                           </button>
@@ -147,6 +147,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Plus, PlusCircle, Pencil, Trash2, ChevronRight, X, Save, Tags, Info } from 'lucide-vue-next'
+import { auth } from '@/auth'
 
 const expandedId = ref(null)
 const showAtributoModal = ref(false)

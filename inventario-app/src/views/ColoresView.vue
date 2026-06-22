@@ -7,7 +7,7 @@
     <div class="card">
       <div class="card-body" style="padding: 0;">
         <table class="table">
-          <thead><tr><th>#</th><th>Color</th><th>Nombre</th><th>Código Hex</th><th>Variantes</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>#</th><th>Color</th><th>Nombre</th><th>Código Hex</th><th>Variantes</th><th>Estado</th><th v-if="auth.isAdmin">Acciones</th></tr></thead>
           <tbody>
             <tr v-for="(c, i) in colores" :key="c.id">
               <td class="text-muted">{{ i + 1 }}</td>
@@ -16,7 +16,7 @@
               <td><code style="background: var(--color-gray-100); padding: 2px 8px; border-radius: 4px; font-size: 13px;">{{ c.hex }}</code></td>
               <td class="text-center">{{ c.total }}</td>
               <td><span class="badge badge-success">Activo</span></td>
-              <td><div class="flex gap-1"><button class="btn btn-ghost btn-icon"><Pencil :size="16" /></button><button class="btn btn-ghost btn-icon"><Trash2 :size="16" style="color: var(--color-danger);" /></button></div></td>
+              <td v-if="auth.isAdmin"><div class="flex gap-1"><button class="btn btn-ghost btn-icon"><Pencil :size="16" /></button><button class="btn btn-ghost btn-icon"><Trash2 :size="16" style="color: var(--color-danger);" /></button></div></td>
             </tr>
           </tbody>
         </table>
@@ -49,6 +49,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
+import { auth } from '@/auth'
 const showModal = ref(false)
 const form = ref({ nombre: '', hex: '#007bff' })
 

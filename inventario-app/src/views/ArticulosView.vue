@@ -9,25 +9,32 @@
         </select>
         <select v-model="selectedCategoria" class="form-select" style="width: 180px;">
           <option value="">Categoría</option>
-          <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
+          <option v-for="c in categorias" :key="c.id" :value="c.nombre">{{ c.nombre }}</option>
         </select>
         <select v-model="selectedMarca" class="form-select" style="width: 160px;">
           <option value="">Marca</option>
-          <option v-for="m in marcas" :key="m" :value="m">{{ m }}</option>
+          <option v-for="m in marcas" :key="m.id" :value="m.nombre">{{ m.nombre }}</option>
         </select>
         <div class="form-input-icon">
           <Search :size="16" />
           <input v-model="search" type="text" class="form-input" placeholder="Buscar artículo..." style="width: 220px;" />
         </div>
       </div>
-      <button class="btn btn-primary" @click="showModal = true">
+      <button class="btn btn-primary" @click="openCreateModal">
         <Plus :size="18" />
         Nuevo Artículo
       </button>
     </div>
 
+    <!-- Loading -->
+    <div class="card" v-if="loading">
+      <div class="empty-state">
+        <p>Cargando artículos...</p>
+      </div>
+    </div>
+
     <!-- Table -->
-    <div class="card">
+    <div class="card" v-else>
       <div class="card-body" style="padding: 0;">
         <div class="table-wrapper">
           <table class="table">
@@ -48,30 +55,29 @@
             <tbody>
               <template v-for="art in filteredArticulos" :key="art.id">
               <tr>
-                <td class="font-semibold text-primary">{{ art.codigo }}</td>
+                <td class="font-semibold text-primary">{{ art.codigo || '—' }}</td>
                 <td>
                   <div class="flex items-center gap-2" style="flex-wrap: wrap;">
                     <span class="font-medium">{{ art.nombre }}</span>
-
                     <span class="attr-pill" v-for="attr in art.atributos" :key="attr">{{ attr }}</span>
                   </div>
                 </td>
-                <td>{{ art.categoria }}</td>
-                <td>{{ art.marca || '—' }}</td>
-                <td>{{ art.unidad }}</td>
+                <td>{{ art.categoria_nombre }}</td>
+                <td>{{ art.marca_nombre || '—' }}</td>
+                <td>{{ art.unidad_nombre }}</td>
                 <td>
                   <div class="color-dots">
                     <span
                       v-for="v in art.variantes"
-                      :key="v.color"
+                      :key="v.id"
                       class="color-dot"
-                      :style="{ background: v.hex }"
-                      :title="v.color + ': ' + v.stock"
+                      :style="{ background: v.codigo_hex }"
+                      :title="v.color_nombre + ': ' + v.stock"
                     ></span>
                   </div>
                 </td>
-                <td class="font-semibold text-center">{{ art.stockTotal }}</td>
-                <td class="text-sm">{{ art.almacen }}</td>
+                <td class="font-semibold text-center">{{ art.stock_total }}</td>
+                <td class="text-sm">{{ art.almacen_nombre }}</td>
                 <td>
                   <span class="badge" :class="art.estado === 'Activo' ? 'badge-success' : 'badge-danger'">
                     {{ art.estado }}
@@ -82,10 +88,10 @@
                     <button class="btn btn-ghost btn-icon" title="Ver variantes" @click="toggleExpand(art.id)">
                       <ChevronDown :size="16" :class="{ 'rotate-180': expandedId === art.id }" style="transition: transform 0.2s;" />
                     </button>
-                    <button class="btn btn-ghost btn-icon" title="Editar">
+                    <button class="btn btn-ghost btn-icon" title="Editar" v-if="auth.isAdmin">
                       <Pencil :size="16" />
                     </button>
-                    <button class="btn btn-ghost btn-icon" title="Eliminar">
+                    <button class="btn btn-ghost btn-icon" title="Eliminar" @click="eliminarArticulo(art.id)" v-if="auth.isAdmin">
                       <Trash2 :size="16" style="color: var(--color-danger);" />
                     </button>
                   </div>
@@ -95,35 +101,27 @@
               <tr v-if="expandedId === art.id" class="expanded-row">
                 <td colspan="10">
                   <div class="variants-detail">
-                    <div class="variant-item" v-for="v in art.variantes" :key="v.color">
-                      <span class="color-dot" :style="{ background: v.hex }"></span>
-                      <span class="font-medium">{{ v.color }}</span>
+                    <div class="variant-item" v-for="v in art.variantes" :key="v.id">
+                      <span class="color-dot" :style="{ background: v.codigo_hex }"></span>
+                      <span class="font-medium">{{ v.color_nombre }}</span>
                       <span class="text-muted">Stock: <strong>{{ v.stock }}</strong></span>
                     </div>
                   </div>
                 </td>
               </tr>
-            </template>
+              </template>
+              <tr v-if="filteredArticulos.length === 0">
+                <td colspan="10" class="text-center text-muted" style="padding: var(--space-6);">
+                  No se encontraron artículos
+                </td>
+              </tr>
             </tbody>
           </table>
-        </div>
-        <!-- Pagination -->
-        <div class="pagination">
-          <span class="pagination-info">Mostrando 1-8 de 847 artículos</span>
-          <div class="pagination-buttons">
-            <button class="pagination-btn">&laquo;</button>
-            <button class="pagination-btn active">1</button>
-            <button class="pagination-btn">2</button>
-            <button class="pagination-btn">3</button>
-            <button class="pagination-btn">...</button>
-            <button class="pagination-btn">106</button>
-            <button class="pagination-btn">&raquo;</button>
-          </div>
         </div>
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    <!-- Create Modal -->
     <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
       <div class="modal-content modal-lg">
         <div class="modal-header">
@@ -134,46 +132,46 @@
           <div class="grid-2 mb-4">
             <div class="form-group">
               <label class="form-label">Almacén *</label>
-              <select class="form-select">
-                <option v-for="a in almacenes" :key="a.id">{{ a.nombre }}</option>
+              <select v-model="form.almacen_id" class="form-select">
+                <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">Código</label>
-              <input type="text" class="form-input" placeholder="Auto-generado o manual" />
+              <input v-model="form.codigo" type="text" class="form-input" placeholder="Auto-generado o manual" />
             </div>
           </div>
           <div class="form-group mb-4">
             <label class="form-label">Nombre del artículo *</label>
-            <input type="text" class="form-input" placeholder="Ej: Cuaderno 100 hojas Tapa Dura" />
+            <input v-model="form.nombre" type="text" class="form-input" placeholder="Ej: Cuaderno 100 hojas Tapa Dura" />
           </div>
           <div class="grid-3 mb-4">
             <div class="form-group">
               <label class="form-label">Categoría *</label>
-              <select class="form-select">
-                <option v-for="c in categorias" :key="c">{{ c }}</option>
+              <select v-model="form.categoria_id" class="form-select">
+                <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nombre }}</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">Marca</label>
-              <select class="form-select">
-                <option value="">Sin marca</option>
-                <option v-for="m in marcas" :key="m">{{ m }}</option>
+              <select v-model="form.marca_id" class="form-select">
+                <option :value="null">Sin marca</option>
+                <option v-for="m in marcas" :key="m.id" :value="m.id">{{ m.nombre }}</option>
               </select>
             </div>
             <div class="form-group">
               <label class="form-label">Unidad de Medida *</label>
-              <select v-model="selectedUnidad" class="form-select">
-                <option v-for="u in unidades" :key="u" :value="u">{{ u }}</option>
+              <select v-model="form.unidad_medida_id" class="form-select">
+                <option v-for="u in unidades" :key="u.id" :value="u.id">{{ u.nombre }}</option>
               </select>
             </div>
           </div>
           <div class="form-group mb-4">
             <label class="form-label">Descripción</label>
-            <textarea class="form-input" placeholder="Descripción adicional..."></textarea>
+            <textarea v-model="form.descripcion" class="form-input" placeholder="Descripción adicional..."></textarea>
           </div>
 
-          <!-- Atributos Section (Acabado, Tamaño, Tipo de Hoja...) -->
+          <!-- Atributos Section -->
           <div class="atributos-section mb-4">
             <h3 class="section-title"><Tags :size="16" /> Atributos y Datos</h3>
             <p class="text-sm text-muted mb-3">Asigna propiedades al artículo (acabado, tamaño, tipo de hoja, etc.)</p>
@@ -209,15 +207,16 @@
             <div class="variant-grid">
               <div
                 v-for="c in availableColors"
-                :key="c.nombre"
+                :key="c.id"
                 class="variant-color-option"
                 :class="{ selected: c.selected }"
                 @click="c.selected = !c.selected"
               >
-                <span class="color-dot" :style="{ background: c.hex }"></span>
+                <span class="color-dot" :style="{ background: c.codigo_hex }"></span>
                 <span class="text-sm">{{ c.nombre }}</span>
                 <input
                   v-if="c.selected"
+                  v-model.number="c.stock"
                   type="number"
                   class="variant-stock-input"
                   placeholder="Stock"
@@ -227,12 +226,17 @@
               </div>
             </div>
           </div>
+
+          <!-- Error -->
+          <div class="text-sm" style="color: var(--color-danger); margin-bottom: var(--space-3);" v-if="formError">
+            ⚠ {{ formError }}
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showModal = false">Cancelar</button>
-          <button class="btn btn-primary">
+          <button class="btn btn-primary" @click="guardarArticulo" :disabled="saving">
             <Save :size="16" />
-            Guardar Artículo
+            {{ saving ? 'Guardando...' : 'Guardar Artículo' }}
           </button>
         </div>
       </div>
@@ -241,8 +245,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Search, Plus, Pencil, Trash2, ChevronDown, X, Save, Tags } from 'lucide-vue-next'
+import { api } from '@/api'
+import { auth } from '@/auth'
 
 const showModal = ref(false)
 const expandedId = ref(null)
@@ -250,34 +256,41 @@ const search = ref('')
 const selectedAlmacen = ref('')
 const selectedCategoria = ref('')
 const selectedMarca = ref('')
+const loading = ref(true)
+const saving = ref(false)
+const formError = ref('')
 
-const almacenes = ref([
-  { id: 1, nombre: 'Almacén Central' },
-  { id: 2, nombre: 'Almacén Norte' },
-  { id: 3, nombre: 'Almacén Laboratorio' }
-])
+// Datos cargados desde el API
+const almacenes = ref([])
+const categorias = ref([])
+const marcas = ref([])
+const unidades = ref([])
+const availableColors = ref([])
+const atributosDisponibles = ref([])
+const articulos = ref([])
 
-const categorias = ref(['Cuadernos', 'Hojas y Papelería', 'Pinturas', 'Herramientas', 'Mat. Construcción', 'EPP'])
-const marcas = ref(['Norma', 'Faber-Castell', 'Monopol', 'Stanley', 'Sika'])
-const unidades = ref(['Unidad', 'Litro', 'Kilogramo', 'Metro', 'Galón', 'Rollo', 'Resma', 'Caja', 'Bolsa'])
-const selectedUnidad = ref('Unidad')
+// Form data
+const form = ref({
+  almacen_id: null,
+  categoria_id: null,
+  marca_id: null,
+  unidad_medida_id: null,
+  codigo: '',
+  nombre: '',
+  descripcion: ''
+})
 
-// --- Atributos ---
+// Atributos
 const selectedAtributo = ref('')
 const selectedDato = ref('')
 const datosAsignados = ref([])
-const atributosDisponibles = ref([
-  { id: 1, nombre: 'Acabado', datos: [{ id: 1, nombre: 'Anillado' }, { id: 2, nombre: 'Anillado Metálico' }, { id: 3, nombre: 'Empastado' }, { id: 4, nombre: 'Grapado' }, { id: 5, nombre: 'Espiral' }] },
-  { id: 2, nombre: 'Tamaño', datos: [{ id: 6, nombre: 'Carta' }, { id: 7, nombre: 'Oficio' }, { id: 8, nombre: 'Media Carta' }, { id: 9, nombre: 'A4' }, { id: 10, nombre: 'A5' }] },
-  { id: 3, nombre: 'Tipo de Hoja', datos: [{ id: 11, nombre: 'Blanca' }, { id: 12, nombre: 'Cuadriculada' }, { id: 13, nombre: 'Rayada' }, { id: 14, nombre: 'Punteada' }] },
-  { id: 4, nombre: 'Material', datos: [{ id: 15, nombre: 'Madera' }, { id: 16, nombre: 'Metal' }, { id: 17, nombre: 'Plástico' }] },
-  { id: 5, nombre: 'Gramaje', datos: [{ id: 18, nombre: '75 g/m²' }, { id: 19, nombre: '90 g/m²' }, { id: 20, nombre: '120 g/m²' }] }
-])
+
 const datosDelAtributo = computed(() => {
   if (!selectedAtributo.value) return []
   const attr = atributosDisponibles.value.find(a => a.id === selectedAtributo.value)
   return attr ? attr.datos : []
 })
+
 function agregarDato() {
   const attr = atributosDisponibles.value.find(a => a.id === selectedAtributo.value)
   const dato = datosDelAtributo.value.find(d => d.id === selectedDato.value)
@@ -287,50 +300,12 @@ function agregarDato() {
   selectedDato.value = ''
 }
 
-
-const articulos = ref([
-  { id: 1, codigo: 'CUA-001', nombre: 'Cuaderno 100h Tapa Dura', categoria: 'Cuadernos', marca: 'Norma', unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 430, estado: 'Activo', atributos: ['Anillado', 'Carta', 'Cuadriculada'], variantes: [
-    { color: 'Azul', hex: '#007bff', stock: 200 }, { color: 'Rojo', hex: '#dc3545', stock: 150 }, { color: 'Verde', hex: '#28a745', stock: 80 }
-  ]},
-  { id: 2, codigo: 'CUA-002', nombre: 'Cuaderno 50h Económico', categoria: 'Cuadernos', marca: 'Norma', unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 600, estado: 'Activo', atributos: ['Grapado', 'Oficio', 'Blanca'], variantes: [
-    { color: 'Amarillo', hex: '#ffc107', stock: 300 }, { color: 'Celeste', hex: '#17a2b8', stock: 300 }
-  ]},
-  { id: 3, codigo: 'PIN-001', nombre: 'Pintura Latex 1L', categoria: 'Pinturas', marca: 'Monopol', unidad: 'Litro', almacen: 'Almacén Norte', stockTotal: 105, estado: 'Activo', atributos: [], variantes: [
-    { color: 'Azul', hex: '#007bff', stock: 30 }, { color: 'Blanco', hex: '#ffffff', stock: 50 }, { color: 'Rojo', hex: '#dc3545', stock: 25 }
-  ]},
-  { id: 4, codigo: 'HER-001', nombre: 'Martillo Carpintero', categoria: 'Herramientas', marca: 'Stanley', unidad: 'Unidad', almacen: 'Almacén Norte', stockTotal: 35, estado: 'Activo', atributos: ['Madera'], variantes: [
-    { color: 'Mango Rojo', hex: '#dc3545', stock: 15 }, { color: 'Mango Negro', hex: '#343a40', stock: 20 }
-  ]},
-  { id: 5, codigo: 'FIE-001', nombre: 'Fierro Corrugado 3/8', categoria: 'Mat. Construcción', marca: null, unidad: 'Metro', almacen: 'Almacén Norte', stockTotal: 500, estado: 'Activo', atributos: [], variantes: [
-    { color: 'S/N', hex: '#e9ecef', stock: 500 }
-  ]},
-  { id: 6, codigo: 'FOL-001', nombre: 'Folder Oficio', categoria: 'Hojas y Papelería', marca: null, unidad: 'Unidad', almacen: 'Almacén Central', stockTotal: 95, estado: 'Activo', atributos: ['Oficio'], variantes: [
-    { color: 'Azul', hex: '#007bff', stock: 50 }, { color: 'Rojo', hex: '#dc3545', stock: 45 }
-  ]},
-
-  { id: 8, codigo: 'HOJ-001', nombre: 'Resma Papel Bond Carta', categoria: 'Hojas y Papelería', marca: 'Faber-Castell', unidad: 'Resma', almacen: 'Almacén Central', stockTotal: 120, estado: 'Activo', atributos: ['Carta', 'Blanca', '75 g/m²'], variantes: [
-    { color: 'S/N', hex: '#e9ecef', stock: 120 }
-  ]}
-])
-
-const availableColors = ref([
-  { nombre: 'Azul', hex: '#007bff', selected: false },
-  { nombre: 'Rojo', hex: '#dc3545', selected: false },
-  { nombre: 'Verde', hex: '#28a745', selected: false },
-  { nombre: 'Amarillo', hex: '#ffc107', selected: false },
-  { nombre: 'Celeste', hex: '#17a2b8', selected: false },
-  { nombre: 'Negro', hex: '#343a40', selected: false },
-  { nombre: 'Blanco', hex: '#ffffff', selected: false },
-  { nombre: 'Naranja', hex: '#fd7e14', selected: false },
-  { nombre: 'Morado', hex: '#6f42c1', selected: false },
-  { nombre: 'Rosado', hex: '#f8b1d1', selected: false }
-])
-
+// Filtros
 const filteredArticulos = computed(() => {
   return articulos.value.filter(a => {
-    const matchSearch = !search.value || a.nombre.toLowerCase().includes(search.value.toLowerCase()) || a.codigo.toLowerCase().includes(search.value.toLowerCase())
-    const matchCat = !selectedCategoria.value || a.categoria === selectedCategoria.value
-    const matchMarca = !selectedMarca.value || a.marca === selectedMarca.value
+    const matchSearch = !search.value || a.nombre.toLowerCase().includes(search.value.toLowerCase()) || (a.codigo && a.codigo.toLowerCase().includes(search.value.toLowerCase()))
+    const matchCat = !selectedCategoria.value || a.categoria_nombre === selectedCategoria.value
+    const matchMarca = !selectedMarca.value || a.marca_nombre === selectedMarca.value
     return matchSearch && matchCat && matchMarca
   })
 })
@@ -338,6 +313,111 @@ const filteredArticulos = computed(() => {
 function toggleExpand(id) {
   expandedId.value = expandedId.value === id ? null : id
 }
+
+// ─── Cargar datos iniciales ───
+async function loadCatalogs() {
+  try {
+    const [almRes, catRes, marRes, uniRes, colRes, atrRes] = await Promise.all([
+      api.getAlmacenes(),
+      api.getCategorias(),
+      api.getMarcas(),
+      api.getUnidades(),
+      api.getColores(),
+      api.getAtributos()
+    ])
+    almacenes.value = almRes.data
+    categorias.value = catRes.data
+    marcas.value = marRes.data
+    unidades.value = uniRes.data
+    availableColors.value = colRes.data.map(c => ({ ...c, selected: false, stock: 0 }))
+    atributosDisponibles.value = atrRes.data
+  } catch (err) {
+    console.error('Error cargando catálogos:', err)
+  }
+}
+
+async function loadArticulos() {
+  loading.value = true
+  try {
+    const res = await api.getArticulos()
+    articulos.value = res.data
+  } catch (err) {
+    console.error('Error cargando artículos:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+function openCreateModal() {
+  form.value = {
+    almacen_id: almacenes.value.length > 0 ? almacenes.value[0].id : null,
+    categoria_id: categorias.value.length > 0 ? categorias.value[0].id : null,
+    marca_id: null,
+    unidad_medida_id: unidades.value.length > 0 ? unidades.value[0].id : null,
+    codigo: '',
+    nombre: '',
+    descripcion: ''
+  }
+  datosAsignados.value = []
+  availableColors.value.forEach(c => { c.selected = false; c.stock = 0 })
+  formError.value = ''
+  showModal.value = true
+}
+
+async function guardarArticulo() {
+  formError.value = ''
+
+  if (!form.value.nombre.trim()) {
+    formError.value = 'El nombre del artículo es obligatorio'
+    return
+  }
+
+  // Construir variantes
+  const selectedColors = availableColors.value.filter(c => c.selected)
+  let variantes = []
+
+  if (selectedColors.length > 0) {
+    variantes = selectedColors.map(c => ({ color_id: c.id, stock: c.stock || 0 }))
+  } else {
+    // Auto-asignar S/N
+    const sinColor = availableColors.value.find(c => c.nombre === 'S/N')
+    if (sinColor) {
+      variantes = [{ color_id: sinColor.id, stock: 0 }]
+    }
+  }
+
+  const dato_ids = datosAsignados.value.map(d => d.datoId)
+
+  saving.value = true
+  try {
+    await api.createArticulo({
+      ...form.value,
+      variantes,
+      dato_ids
+    })
+    showModal.value = false
+    await loadArticulos()
+  } catch (err) {
+    formError.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function eliminarArticulo(id) {
+  if (!confirm('¿Estás seguro de eliminar este artículo?')) return
+  try {
+    await api.deleteArticulo(id)
+    await loadArticulos()
+  } catch (err) {
+    alert('Error al eliminar: ' + err.message)
+  }
+}
+
+onMounted(async () => {
+  await loadCatalogs()
+  await loadArticulos()
+})
 </script>
 
 <style scoped>
@@ -369,14 +449,14 @@ function toggleExpand(id) {
   background: var(--color-white);
   border-radius: var(--radius-md);
   border: 1px solid var(--color-gray-200);
-  font-size: var(--font-size-sm);
 }
+
 .expanded-row td {
   padding: 0 !important;
   background: var(--color-gray-50);
 }
 
-/* Section titles */
+/* Create/Edit Modal sections */
 .section-title {
   display: flex;
   align-items: center;
@@ -386,28 +466,25 @@ function toggleExpand(id) {
   font-size: var(--font-size-base);
   margin-bottom: var(--space-2);
 }
-
-/* Atributos section */
 .atributos-section {
   background: var(--color-gray-50);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-4);
   border: 1px solid var(--color-gray-200);
 }
 .datos-asignados {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-3);
 }
 .dato-asignado {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3);
-  background: var(--color-white);
-  border: 1px solid var(--color-primary-lighter);
   border-radius: var(--radius-full);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-300);
   font-size: var(--font-size-sm);
 }
 .dato-atributo {
@@ -418,46 +495,40 @@ function toggleExpand(id) {
   color: var(--color-primary-dark);
   font-weight: 600;
 }
-
-/* Modal variants */
 .variants-section {
   background: var(--color-gray-50);
+  padding: var(--space-4);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
   border: 1px solid var(--color-gray-200);
 }
 .variant-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
 }
 .variant-color-option {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-gray-200);
+  gap: var(--space-1);
+  padding: var(--space-3);
   border-radius: var(--radius-md);
+  background: var(--color-white);
+  border: 2px solid var(--color-gray-200);
   cursor: pointer;
   transition: all var(--transition-fast);
-  background: var(--color-white);
 }
-.variant-color-option:hover {
-  border-color: var(--color-primary-light);
-}
+.variant-color-option:hover { border-color: var(--color-primary-light); }
 .variant-color-option.selected {
   border-color: var(--color-primary);
   background: var(--color-primary-lightest);
 }
 .variant-stock-input {
-  width: 60px;
-  padding: 2px 6px;
+  width: 80px;
+  padding: var(--space-1);
   border: 1px solid var(--color-gray-300);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  margin-left: auto;
+  font-size: var(--font-size-sm);
   text-align: center;
 }
-
-
 </style>

@@ -27,6 +27,10 @@
         </div>
 
         <form class="login-form" @submit.prevent="handleLogin">
+          <div class="login-error" v-if="errorMsg">
+            <span>⚠ {{ errorMsg }}</span>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Carnet de Identidad</label>
             <div class="form-input-icon">
@@ -35,8 +39,10 @@
                 v-model="form.carnet"
                 type="text"
                 class="form-input"
+                :class="{ 'input-error': errorMsg }"
                 placeholder="Ingrese su carnet"
                 required
+                :disabled="auth.state.loading"
               />
             </div>
           </div>
@@ -49,8 +55,10 @@
                 v-model="form.password"
                 :type="showPassword ? 'text' : 'password'"
                 class="form-input"
+                :class="{ 'input-error': errorMsg }"
                 placeholder="Ingrese su contraseña"
                 required
+                :disabled="auth.state.loading"
                 style="padding-right: 2.5rem;"
               />
               <button
@@ -64,9 +72,9 @@
             </div>
           </div>
 
-          <button type="submit" class="btn btn-primary btn-lg w-full login-btn">
+          <button type="submit" class="btn btn-primary btn-lg w-full login-btn" :disabled="auth.state.loading">
             <LogIn :size="20" />
-            Ingresar al Sistema
+            {{ auth.state.loading ? 'Ingresando...' : 'Ingresar al Sistema' }}
           </button>
         </form>
 
@@ -80,6 +88,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { UserCircle, Lock, Eye, EyeOff, LogIn } from 'lucide-vue-next'
+import { auth } from '@/auth'
 import logoSrc from '@/assets/logo.png'
 
 const router = useRouter()
@@ -91,9 +100,23 @@ const form = ref({
   password: ''
 })
 
-function handleLogin() {
-  // TODO: Integrate with backend API
-  router.push('/')
+const errorMsg = ref('')
+
+async function handleLogin() {
+  errorMsg.value = ''
+
+  if (!form.value.carnet.trim() || !form.value.password.trim()) {
+    errorMsg.value = 'Por favor ingrese su carnet y contraseña'
+    return
+  }
+
+  const success = await auth.login(form.value.carnet.trim(), form.value.password)
+
+  if (success) {
+    router.push('/')
+  } else {
+    errorMsg.value = auth.state.loginError
+  }
 }
 </script>
 
@@ -265,5 +288,28 @@ function handleLogin() {
   margin-top: var(--space-8);
   color: var(--color-gray-400);
   font-size: var(--font-size-xs);
+}
+
+/* Error message */
+.login-error {
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  color: #E53E3E;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-align: center;
+  animation: shakeError 0.4s ease-in-out;
+}
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.input-error {
+  border-color: rgba(229, 62, 62, 0.5) !important;
 }
 </style>

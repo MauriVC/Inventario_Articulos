@@ -7,7 +7,7 @@
     <div class="card">
       <div class="card-body" style="padding: 0;">
         <table class="table">
-          <thead><tr><th>#</th><th>Nombre</th><th>Categoría Padre</th><th>Descripción</th><th>Artículos</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>#</th><th>Nombre</th><th>Categoría Padre</th><th>Descripción</th><th>Artículos</th><th>Estado</th><th v-if="auth.isAdmin">Acciones</th></tr></thead>
           <tbody>
             <tr v-for="(c, i) in categorias" :key="c.id">
               <td class="text-muted">{{ i + 1 }}</td>
@@ -18,7 +18,7 @@
               <td class="text-muted text-sm">{{ c.descripcion || '—' }}</td>
               <td class="text-center"><span class="badge badge-primary">{{ c.total }}</span></td>
               <td><span class="badge badge-success">Activo</span></td>
-              <td>
+              <td v-if="auth.isAdmin">
                 <div class="flex gap-1">
                   <button class="btn btn-ghost btn-icon" title="Editar"><Pencil :size="16" /></button>
                   <button class="btn btn-ghost btn-icon" title="Eliminar"><Trash2 :size="16" style="color: var(--color-danger);" /></button>
@@ -51,6 +51,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
+import { auth } from '@/auth'
 const showModal = ref(false)
 const categorias = ref([
   { id: 1, nombre: 'Material de Escritorio', padre: null, descripcion: 'Materiales escolares y de oficina', total: 423 },
