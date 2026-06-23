@@ -14,7 +14,6 @@
               <th style="width: 40px;"></th>
               <th>Atributo</th>
               <th>Valores Disponibles</th>
-              <th>Artículos</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -38,9 +37,6 @@
                     <span class="text-muted text-xs" v-if="attr.datos.length === 0">Sin valores</span>
                   </div>
                 </td>
-                <td class="text-center">
-                  <span class="badge badge-primary">{{ attr.totalArticulos }}</span>
-                </td>
                 <td>
                   <div class="flex gap-1">
                     <button class="btn btn-ghost btn-icon" title="Agregar valor" @click="openDatoModal(attr)">
@@ -49,7 +45,7 @@
                     <button class="btn btn-ghost btn-icon" title="Editar" @click="openAtributoModal(attr)" v-if="auth.isAdmin">
                       <Pencil :size="16" />
                     </button>
-                    <button class="btn btn-ghost btn-icon" title="Eliminar" v-if="auth.isAdmin">
+                    <button class="btn btn-ghost btn-icon" title="Eliminar" @click="eliminarAtributo(attr.id)" v-if="auth.isAdmin">
                       <Trash2 :size="16" style="color: var(--color-danger);" />
                     </button>
                   </div>
@@ -57,7 +53,7 @@
               </tr>
               <!-- Expanded: valores del atributo -->
               <tr v-if="expandedId === attr.id" class="expanded-row">
-                <td colspan="5">
+                <td colspan="4">
                   <div class="datos-expanded">
                     <div class="datos-header">
                       <span class="text-sm font-semibold" style="color: var(--color-gray-600);">
@@ -71,10 +67,7 @@
                       <div class="dato-card" v-for="d in attr.datos" :key="d.id">
                         <span class="dato-card-name">{{ d.nombre }}</span>
                         <div class="dato-card-actions" v-if="auth.isAdmin">
-                          <button class="btn btn-ghost btn-icon" title="Editar" @click="editDato(attr, d)">
-                            <Pencil :size="14" />
-                          </button>
-                          <button class="btn btn-ghost btn-icon" title="Eliminar">
+                          <button class="btn btn-ghost btn-icon" title="Eliminar" @click="eliminarDato(attr.id, d.id)">
                             <X :size="14" style="color: var(--color-danger);" />
                           </button>
                         </div>
@@ -87,6 +80,9 @@
                 </td>
               </tr>
             </template>
+            <tr v-if="atributos.length === 0">
+              <td colspan="4" class="text-center text-muted" style="padding: var(--space-6);">No hay atributos registrados</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -108,36 +104,42 @@
             <Info :size="16" />
             <span>Los atributos son categorías de propiedades. Luego podrás agregar valores (datos) a cada atributo. Ejemplo: Atributo "Acabado" con valores "Anillado", "Empastado", etc.</span>
           </div>
+          <div class="text-sm" style="color: var(--color-danger); margin-top: var(--space-3);" v-if="formError">⚠ {{ formError }}</div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showAtributoModal = false">Cancelar</button>
-          <button class="btn btn-primary" @click="saveAtributo"><Save :size="16" /> {{ editingAtributo ? 'Actualizar' : 'Guardar' }}</button>
+          <button class="btn btn-primary" @click="saveAtributo" :disabled="saving">
+            <Save :size="16" /> {{ editingAtributo ? 'Actualizar' : 'Guardar' }}
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Modal: Crear/Editar Dato (Valor) -->
+    <!-- Modal: Crear Dato (Valor) -->
     <div class="modal-overlay" v-if="showDatoModal" @click.self="showDatoModal = false">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>{{ editingDato ? 'Editar Valor' : 'Nuevo Valor' }} <span class="text-primary" style="font-weight: 400;">— {{ selectedAtributo?.nombre }}</span></h2>
+          <h2>Nuevo Valor <span class="text-primary" style="font-weight: 400;">— {{ selectedAtributo?.nombre }}</span></h2>
           <button class="btn btn-ghost btn-icon" @click="showDatoModal = false"><X :size="20" /></button>
         </div>
         <div class="modal-body">
           <div class="form-group mb-4">
             <label class="form-label">Nombre del Valor *</label>
-            <input v-model="datoForm.nombre" type="text" class="form-input" :placeholder="datoPlaceholder" />
+            <input v-model="datoForm.nombre" type="text" class="form-input" placeholder="Ej: Anillado, Carta, Cuadriculada..." />
           </div>
           <!-- Quick add: multiple values -->
-          <div class="quick-add" v-if="!editingDato">
+          <div class="quick-add">
             <label class="form-label">Agregar múltiples valores (separados por coma)</label>
             <input v-model="bulkDatos" type="text" class="form-input" placeholder="Ej: Anillado, Empastado, Grapado" />
             <span class="text-xs text-muted">Deja el campo superior vacío y escribe aquí para agregar varios a la vez</span>
           </div>
+          <div class="text-sm" style="color: var(--color-danger); margin-top: var(--space-3);" v-if="formError">⚠ {{ formError }}</div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showDatoModal = false">Cancelar</button>
-          <button class="btn btn-primary" @click="saveDato"><Save :size="16" /> {{ editingDato ? 'Actualizar' : 'Guardar' }}</button>
+          <button class="btn btn-primary" @click="saveDato" :disabled="saving">
+            <Save :size="16" /> Guardar
+          </button>
         </div>
       </div>
     </div>
@@ -145,73 +147,123 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { Plus, PlusCircle, Pencil, Trash2, ChevronRight, X, Save, Tags, Info } from 'lucide-vue-next'
+import { api } from '@/api'
 import { auth } from '@/auth'
 
 const expandedId = ref(null)
 const showAtributoModal = ref(false)
 const showDatoModal = ref(false)
 const editingAtributo = ref(null)
-const editingDato = ref(null)
 const selectedAtributo = ref(null)
 const atributoForm = ref({ nombre: '' })
 const datoForm = ref({ nombre: '' })
 const bulkDatos = ref('')
+const saving = ref(false)
+const formError = ref('')
 
-const atributos = ref([
-  { id: 1, nombre: 'Acabado', totalArticulos: 156, datos: [
-    { id: 1, nombre: 'Anillado' }, { id: 2, nombre: 'Anillado Metálico' },
-    { id: 3, nombre: 'Empastado' }, { id: 4, nombre: 'Grapado' }, { id: 5, nombre: 'Espiral' }
-  ]},
-  { id: 2, nombre: 'Tamaño', totalArticulos: 234, datos: [
-    { id: 6, nombre: 'Carta' }, { id: 7, nombre: 'Oficio' }, { id: 8, nombre: 'Media Carta' },
-    { id: 9, nombre: 'A4' }, { id: 10, nombre: 'A5' }
-  ]},
-  { id: 3, nombre: 'Tipo de Hoja', totalArticulos: 189, datos: [
-    { id: 11, nombre: 'Blanca' }, { id: 12, nombre: 'Cuadriculada' },
-    { id: 13, nombre: 'Rayada' }, { id: 14, nombre: 'Punteada' }, { id: 15, nombre: 'Milimetrada' }
-  ]},
-  { id: 4, nombre: 'Material', totalArticulos: 45, datos: [
-    { id: 16, nombre: 'Madera' }, { id: 17, nombre: 'Metal' },
-    { id: 18, nombre: 'Plástico' }, { id: 19, nombre: 'Caucho' }
-  ]},
-  { id: 5, nombre: 'Gramaje', totalArticulos: 67, datos: [
-    { id: 20, nombre: '75 g/m²' }, { id: 21, nombre: '90 g/m²' }, { id: 22, nombre: '120 g/m²' }
-  ]}
-])
+const atributos = ref([])
 
-const datoPlaceholder = computed(() => {
-  if (!selectedAtributo.value) return ''
-  const map = { 'Acabado': 'Ej: Anillado', 'Tamaño': 'Ej: Carta', 'Tipo de Hoja': 'Ej: Cuadriculada' }
-  return map[selectedAtributo.value.nombre] || 'Ej: Valor del atributo'
+onMounted(async () => {
+  await cargar()
 })
+
+async function cargar() {
+  try {
+    const res = await api.getAtributos()
+    atributos.value = res.data
+  } catch (err) {
+    console.error('Error cargando atributos:', err)
+  }
+}
 
 function toggleExpand(id) { expandedId.value = expandedId.value === id ? null : id }
 
 function openAtributoModal(attr = null) {
   editingAtributo.value = attr
   atributoForm.value = { nombre: attr ? attr.nombre : '' }
+  formError.value = ''
   showAtributoModal.value = true
 }
 
 function openDatoModal(attr) {
   selectedAtributo.value = attr
-  editingDato.value = null
   datoForm.value = { nombre: '' }
   bulkDatos.value = ''
+  formError.value = ''
   showDatoModal.value = true
 }
 
-function editDato(attr, dato) {
-  selectedAtributo.value = attr
-  editingDato.value = dato
-  datoForm.value = { nombre: dato.nombre }
-  showDatoModal.value = true
+async function saveAtributo() {
+  if (!atributoForm.value.nombre.trim()) {
+    formError.value = 'El nombre es obligatorio'
+    return
+  }
+  saving.value = true
+  formError.value = ''
+  try {
+    if (editingAtributo.value) {
+      await api.updateAtributo(editingAtributo.value.id, atributoForm.value)
+    } else {
+      await api.createAtributo(atributoForm.value)
+    }
+    showAtributoModal.value = false
+    await cargar()
+  } catch (err) {
+    formError.value = err.message
+  } finally {
+    saving.value = false
+  }
 }
 
-function saveAtributo() { showAtributoModal.value = false }
-function saveDato() { showDatoModal.value = false }
+async function saveDato() {
+  const nombres = []
+  if (bulkDatos.value.trim()) {
+    nombres.push(...bulkDatos.value.split(',').map(n => n.trim()).filter(n => n))
+  } else if (datoForm.value.nombre.trim()) {
+    nombres.push(datoForm.value.nombre.trim())
+  }
+
+  if (nombres.length === 0) {
+    formError.value = 'Ingrese al menos un valor'
+    return
+  }
+
+  saving.value = true
+  formError.value = ''
+  try {
+    for (const nombre of nombres) {
+      await api.createDato(selectedAtributo.value.id, { nombre })
+    }
+    showDatoModal.value = false
+    await cargar()
+  } catch (err) {
+    formError.value = err.message
+  } finally {
+    saving.value = false
+  }
+}
+
+async function eliminarAtributo(id) {
+  if (!confirm('¿Eliminar este atributo y todos sus valores?')) return
+  try {
+    await api.deleteAtributo(id)
+    await cargar()
+  } catch (err) {
+    alert('Error: ' + err.message)
+  }
+}
+
+async function eliminarDato(atributoId, datoId) {
+  if (!confirm('¿Eliminar este valor?')) return
+  try {
+    await api.deleteDato(atributoId, datoId)
+    await cargar()
+  } catch (err) {
+    alert('Error: ' + err.message)
+  }
+}
 </script>
 
 <style scoped>

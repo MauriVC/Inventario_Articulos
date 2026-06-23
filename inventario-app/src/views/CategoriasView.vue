@@ -2,28 +2,30 @@
   <div>
     <div class="flex items-center justify-between mb-6">
       <p class="text-muted">Organiza los artículos en categorías y subcategorías</p>
-      <button class="btn btn-primary" @click="showModal = true"><Plus :size="18" /> Nueva Categoría</button>
+      <button class="btn btn-primary" @click="openModal()"><Plus :size="18" /> Nueva Categoría</button>
     </div>
     <div class="card">
       <div class="card-body" style="padding: 0;">
         <table class="table">
-          <thead><tr><th>#</th><th>Nombre</th><th>Categoría Padre</th><th>Descripción</th><th>Artículos</th><th>Estado</th><th v-if="auth.isAdmin">Acciones</th></tr></thead>
+          <thead><tr><th>#</th><th>Nombre</th><th>Categoría Padre</th><th>Descripción</th><th>Estado</th><th v-if="auth.isAdmin">Acciones</th></tr></thead>
           <tbody>
             <tr v-for="(c, i) in categorias" :key="c.id">
               <td class="text-muted">{{ i + 1 }}</td>
               <td class="font-semibold">
-                <span v-if="c.padre" class="text-muted">└─ </span>{{ c.nombre }}
+                <span v-if="c.padre_nombre" class="text-muted">└─ </span>{{ c.nombre }}
               </td>
-              <td>{{ c.padre || '—' }}</td>
+              <td>{{ c.padre_nombre || '—' }}</td>
               <td class="text-muted text-sm">{{ c.descripcion || '—' }}</td>
-              <td class="text-center"><span class="badge badge-primary">{{ c.total }}</span></td>
-              <td><span class="badge badge-success">Activo</span></td>
+              <td><span class="badge badge-success">{{ c.estado }}</span></td>
               <td v-if="auth.isAdmin">
                 <div class="flex gap-1">
-                  <button class="btn btn-ghost btn-icon" title="Editar"><Pencil :size="16" /></button>
-                  <button class="btn btn-ghost btn-icon" title="Eliminar"><Trash2 :size="16" style="color: var(--color-danger);" /></button>
+                  <button class="btn btn-ghost btn-icon" @click="openModal(c)"><Pencil :size="16" /></button>
+                  <button class="btn btn-ghost btn-icon" @click="eliminar(c.id)"><Trash2 :size="16" style="color: var(--color-danger);" /></button>
                 </div>
               </td>
+            </tr>
+            <tr v-if="categorias.length === 0">
+              <td colspan="6" class="text-center text-muted" style="padding: var(--space-6);">No hay categorías registradas</td>
             </tr>
           </tbody>
         </table>
@@ -32,34 +34,65 @@
     <!-- Modal -->
     <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
       <div class="modal-content">
-        <div class="modal-header"><h2>Nueva Categoría</h2><button class="btn btn-ghost btn-icon" @click="showModal = false"><X :size="20" /></button></div>
+        <div class="modal-header"><h2>{{ editing ? 'Editar Categoría' : 'Nueva Categoría' }}</h2><button class="btn btn-ghost btn-icon" @click="showModal = false"><X :size="20" /></button></div>
         <div class="modal-body">
           <div class="flex flex-col gap-4">
-            <div class="form-group"><label class="form-label">Nombre *</label><input type="text" class="form-input" placeholder="Ej: Pinturas" /></div>
+            <div class="form-group"><label class="form-label">Nombre *</label><input v-model="form.nombre" type="text" class="form-input" placeholder="Ej: Pinturas" /></div>
             <div class="form-group"><label class="form-label">Categoría Padre</label>
-              <select class="form-select"><option value="">Ninguna (Categoría raíz)</option><option v-for="c in categorias.filter(x => !x.padre)" :key="c.id">{{ c.nombre }}</option></select>
+              <select v-model="form.padre_id" class="form-select">
+                <option :value="null">Ninguna (Categoría raíz)</option>
+                <option v-for="c in categoriasRaiz" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+              </select>
             </div>
-            <div class="form-group"><label class="form-label">Descripción</label><input type="text" class="form-input" placeholder="Descripción opcional" /></div>
+            <div class="form-group"><label class="form-label">Descripción</label><input v-model="form.descripcion" type="text" class="form-input" placeholder="Descripción opcional" /></div>
           </div>
+          <div class="text-sm" style="color: var(--color-danger); margin-top: var(--space-3);" v-if="formError">⚠ {{ formError }}</div>
         </div>
-        <div class="modal-footer"><button class="btn btn-secondary" @click="showModal = false">Cancelar</button><button class="btn btn-primary"><Save :size="16" /> Guardar</button></div>
+        <div class="modal-footer"><button class="btn btn-secondary" @click="showModal = false">Cancelar</button><button class="btn btn-primary" @click="guardar" :disabled="saving"><Save :size="16" /> {{ saving ? 'Guardando...' : 'Guardar' }}</button></div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
+import { api } from '@/api'
 import { auth } from '@/auth'
+
 const showModal = ref(false)
-const categorias = ref([
-  { id: 1, nombre: 'Material de Escritorio', padre: null, descripcion: 'Materiales escolares y de oficina', total: 423 },
-  { id: 2, nombre: 'Cuadernos', padre: 'Material de Escritorio', descripcion: 'Cuadernos de todas las medidas', total: 280 },
-  { id: 3, nombre: 'Hojas y Papelería', padre: 'Material de Escritorio', descripcion: 'Resmas, hojas sueltas, cartulinas', total: 143 },
-  { id: 4, nombre: 'Herramientas', padre: null, descripcion: 'Herramientas manuales y eléctricas', total: 156 },
-  { id: 5, nombre: 'Pinturas', padre: null, descripcion: 'Pinturas latex, esmalte, spray', total: 89 },
-  { id: 6, nombre: 'Mat. Construcción', padre: null, descripcion: 'Fierros, cemento, arena', total: 67 },
-  { id: 7, nombre: 'EPP', padre: null, descripcion: 'Equipos de protección personal', total: 45 }
-])
+const editing = ref(null)
+const saving = ref(false)
+const formError = ref('')
+const categorias = ref([])
+const form = ref({ nombre: '', padre_id: null, descripcion: '' })
+
+const categoriasRaiz = computed(() => categorias.value.filter(c => !c.padre_id))
+
+onMounted(async () => { await cargar() })
+
+async function cargar() {
+  try { const res = await api.getCategorias(); categorias.value = res.data } catch (err) { console.error('Error:', err) }
+}
+
+function openModal(c = null) {
+  editing.value = c
+  form.value = c ? { nombre: c.nombre, padre_id: c.padre_id || null, descripcion: c.descripcion || '' } : { nombre: '', padre_id: null, descripcion: '' }
+  formError.value = ''
+  showModal.value = true
+}
+
+async function guardar() {
+  if (!form.value.nombre.trim()) { formError.value = 'El nombre es obligatorio'; return }
+  saving.value = true; formError.value = ''
+  try {
+    if (editing.value) { await api.updateCategoria(editing.value.id, form.value) } else { await api.createCategoria(form.value) }
+    showModal.value = false; await cargar()
+  } catch (err) { formError.value = err.message } finally { saving.value = false }
+}
+
+async function eliminar(id) {
+  if (!confirm('¿Eliminar esta categoría?')) return
+  try { await api.deleteCategoria(id); await cargar() } catch (err) { alert('Error: ' + err.message) }
+}
 </script>

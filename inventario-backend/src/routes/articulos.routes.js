@@ -79,13 +79,13 @@ async function articulosRoutes(fastify) {
     if (articulos.length === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
 
     const [variantes] = await pool.query(`
-      SELECT ai.id, ai.stock, ai.estado, c.nombre AS color_nombre, c.codigo_hex
+      SELECT ai.id, ai.stock, ai.estado, c.id AS color_id, c.nombre AS color_nombre, c.codigo_hex
       FROM articulo_items ai JOIN colores c ON ai.color_id = c.id
       WHERE ai.articulo_id = ?
     `, [id]);
 
     const [atributos] = await pool.query(`
-      SELECT d.nombre AS dato_nombre, at.nombre AS atributo_nombre
+      SELECT d.id AS dato_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
       FROM articulo_datos ad
       JOIN datos d ON ad.dato_id = d.id
       JOIN atributos at ON d.atributo_id = at.id
@@ -97,11 +97,10 @@ async function articulosRoutes(fastify) {
         ...articulos[0],
         variantes,
         stock_total: variantes.reduce((sum, v) => sum + v.stock, 0),
-        atributos: atributos.map(a => ({ atributo: a.atributo_nombre, dato: a.dato_nombre }))
+        atributos: atributos.map(a => ({ atributo: a.atributo_nombre, dato: a.dato_nombre, dato_id: a.dato_id }))
       }
     };
   });
-
   // POST /api/articulos — Crear artículo con variantes y atributos
   fastify.post('/', async (request, reply) => {
     const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, variantes, dato_ids } = request.body;
@@ -142,18 +141,54 @@ async function articulosRoutes(fastify) {
     }
   });
 
-  // PUT /api/articulos/:id — Actualizar datos básicos
+  // PUT /api/articulos/:id — Actualizar datos básicos, atributos y variantes
   fastify.put('/:id', async (request, reply) => {
     const { id } = request.params;
-    const { categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado } = request.body;
+    const { categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
-    const [result] = await pool.query(
-      'UPDATE articulos SET categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
-      [categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
-    );
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
-    return { data: { id: Number(id), nombre } };
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // 1. Actualizar datos básicos
+      const [result] = await conn.query(
+        'UPDATE articulos SET categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
+        [categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
+      );
+      
+      if (result.affectedRows === 0) {
+        await conn.rollback();
+        return reply.code(404).send({ error: 'Artículo no encontrado' });
+      }
+
+      // 2. Actualizar atributos (seguro borrar y recrear, no afectan historial)
+      await conn.query('DELETE FROM articulo_datos WHERE articulo_id = ?', [id]);
+      if (dato_ids && dato_ids.length > 0) {
+        const vals = dato_ids.map(did => [id, did]);
+        await conn.query('INSERT INTO articulo_datos (articulo_id, dato_id) VALUES ?', [vals]);
+      }
+
+      // 3. Actualizar variantes (Upsert seguro para no romper FOREIGN KEYS del historial)
+      if (variantes && variantes.length > 0) {
+        for (const v of variantes) {
+          const [exists] = await conn.query('SELECT id FROM articulo_items WHERE articulo_id = ? AND color_id = ?', [id, v.color_id]);
+          if (exists.length > 0) {
+            await conn.query('UPDATE articulo_items SET stock = ? WHERE id = ?', [v.stock || 0, exists[0].id]);
+          } else {
+            await conn.query('INSERT INTO articulo_items (articulo_id, color_id, stock) VALUES (?, ?, ?)', [id, v.color_id, v.stock || 0]);
+          }
+        }
+      }
+
+      await conn.commit();
+      return { data: { id: Number(id), nombre } };
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   });
 
   // PATCH /api/articulos/:id/devolucion — Toggle requiere_devolucion

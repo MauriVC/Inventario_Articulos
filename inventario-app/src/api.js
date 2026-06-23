@@ -27,21 +27,42 @@ async function apiFetch(endpoint, options = {}) {
 export const api = {
   // Almacenes
   getAlmacenes: () => apiFetch('/almacenes'),
+  createAlmacen: (data) => apiFetch('/almacenes', { method: 'POST', body: data }),
+  updateAlmacen: (id, data) => apiFetch(`/almacenes/${id}`, { method: 'PUT', body: data }),
+  deleteAlmacen: (id) => apiFetch(`/almacenes/${id}`, { method: 'DELETE' }),
 
   // Categorias
   getCategorias: () => apiFetch('/categorias'),
+  createCategoria: (data) => apiFetch('/categorias', { method: 'POST', body: data }),
+  updateCategoria: (id, data) => apiFetch(`/categorias/${id}`, { method: 'PUT', body: data }),
+  deleteCategoria: (id) => apiFetch(`/categorias/${id}`, { method: 'DELETE' }),
 
   // Marcas
   getMarcas: () => apiFetch('/marcas'),
+  createMarca: (data) => apiFetch('/marcas', { method: 'POST', body: data }),
+  updateMarca: (id, data) => apiFetch(`/marcas/${id}`, { method: 'PUT', body: data }),
+  deleteMarca: (id) => apiFetch(`/marcas/${id}`, { method: 'DELETE' }),
 
   // Unidades
   getUnidades: () => apiFetch('/unidades'),
+  createUnidad: (data) => apiFetch('/unidades', { method: 'POST', body: data }),
+  updateUnidad: (id, data) => apiFetch(`/unidades/${id}`, { method: 'PUT', body: data }),
+  deleteUnidad: (id) => apiFetch(`/unidades/${id}`, { method: 'DELETE' }),
 
   // Colores
   getColores: () => apiFetch('/colores'),
+  createColor: (data) => apiFetch('/colores', { method: 'POST', body: data }),
+  updateColor: (id, data) => apiFetch(`/colores/${id}`, { method: 'PUT', body: data }),
+  deleteColor: (id) => apiFetch(`/colores/${id}`, { method: 'DELETE' }),
 
   // Atributos (con sus datos)
   getAtributos: () => apiFetch('/atributos'),
+  createAtributo: (data) => apiFetch('/atributos', { method: 'POST', body: data }),
+  updateAtributo: (id, data) => apiFetch(`/atributos/${id}`, { method: 'PUT', body: data }),
+  deleteAtributo: (id) => apiFetch(`/atributos/${id}`, { method: 'DELETE' }),
+  // Datos (valores de un atributo)
+  createDato: (atributoId, data) => apiFetch(`/atributos/${atributoId}/datos`, { method: 'POST', body: data }),
+  deleteDato: (atributoId, datoId) => apiFetch(`/atributos/${atributoId}/datos/${datoId}`, { method: 'DELETE' }),
 
   // Artículos
   getArticulos: (params = {}) => {
@@ -55,8 +76,13 @@ export const api = {
   toggleDevolucion: (id, value) => apiFetch(`/articulos/${id}/devolucion`, { method: 'PATCH', body: { requiere_devolucion: value } }),
 
   // Paquetes
-  getPaquetes: () => apiFetch('/paquetes'),
+  getPaquetes: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/paquetes${query ? '?' + query : ''}`);
+  },
   createPaquete: (data) => apiFetch('/paquetes', { method: 'POST', body: data }),
+  updatePaquete: (id, data) => apiFetch(`/paquetes/${id}`, { method: 'PUT', body: data }),
+  deletePaquete: (id) => apiFetch(`/paquetes/${id}`, { method: 'DELETE' }),
 
   // Movimientos
   getMovimientos: (params = {}) => {
@@ -72,3 +98,4 @@ export const api = {
   // Usuarios
   getUsuarios: () => apiFetch('/usuarios'),
 };
+

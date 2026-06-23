@@ -20,7 +20,7 @@
           <input v-model="search" type="text" class="form-input" placeholder="Buscar artículo..." style="width: 220px;" />
         </div>
       </div>
-      <button class="btn btn-primary" @click="openCreateModal">
+      <button class="btn btn-primary" @click="openModal(null)">
         <Plus :size="18" />
         Nuevo Artículo
       </button>
@@ -88,7 +88,7 @@
                     <button class="btn btn-ghost btn-icon" title="Ver variantes" @click="toggleExpand(art.id)">
                       <ChevronDown :size="16" :class="{ 'rotate-180': expandedId === art.id }" style="transition: transform 0.2s;" />
                     </button>
-                    <button class="btn btn-ghost btn-icon" title="Editar" v-if="auth.isAdmin">
+                    <button class="btn btn-ghost btn-icon" title="Editar" v-if="auth.isAdmin" @click="openModal(art.id)">
                       <Pencil :size="16" />
                     </button>
                     <button class="btn btn-ghost btn-icon" title="Eliminar" @click="eliminarArticulo(art.id)" v-if="auth.isAdmin">
@@ -125,7 +125,7 @@
     <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
       <div class="modal-content modal-lg">
         <div class="modal-header">
-          <h2>Nuevo Artículo</h2>
+          <h2>{{ editingArticulo ? 'Editar Artículo' : 'Nuevo Artículo' }}</h2>
           <button class="btn btn-ghost btn-icon" @click="showModal = false"><X :size="20" /></button>
         </div>
         <div class="modal-body">
@@ -251,6 +251,7 @@ import { api } from '@/api'
 import { auth } from '@/auth'
 
 const showModal = ref(false)
+const editingArticulo = ref(null)
 const expandedId = ref(null)
 const search = ref('')
 const selectedAlmacen = ref('')
@@ -348,19 +349,59 @@ async function loadArticulos() {
   }
 }
 
-function openCreateModal() {
-  form.value = {
-    almacen_id: almacenes.value.length > 0 ? almacenes.value[0].id : null,
-    categoria_id: categorias.value.length > 0 ? categorias.value[0].id : null,
-    marca_id: null,
-    unidad_medida_id: unidades.value.length > 0 ? unidades.value[0].id : null,
-    codigo: '',
-    nombre: '',
-    descripcion: ''
-  }
+async function openModal(id = null) {
+  formError.value = ''
   datosAsignados.value = []
   availableColors.value.forEach(c => { c.selected = false; c.stock = 0 })
-  formError.value = ''
+
+  if (id) {
+    editingArticulo.value = id
+    loading.value = true
+    try {
+      const res = await api.getArticulo(id)
+      const art = res.data
+      form.value = {
+        almacen_id: art.almacen_id,
+        categoria_id: art.categoria_id,
+        marca_id: art.marca_id,
+        unidad_medida_id: art.unidad_medida_id,
+        codigo: art.codigo || '',
+        nombre: art.nombre,
+        descripcion: art.descripcion || ''
+      }
+      // Establecer variantes y su stock
+      art.variantes.forEach(v => {
+        const c = availableColors.value.find(ac => ac.id === v.color_id)
+        if (c) {
+          c.selected = true
+          c.stock = v.stock
+        }
+      })
+      // Establecer atributos
+      datosAsignados.value = art.atributos.map(a => ({
+        atributoNombre: a.atributo,
+        datoNombre: a.dato,
+        datoId: a.dato_id
+      }))
+    } catch (err) {
+      alert("Error cargando el artículo: " + err.message)
+      loading.value = false
+      return
+    } finally {
+      loading.value = false
+    }
+  } else {
+    editingArticulo.value = null
+    form.value = {
+      almacen_id: almacenes.value.length > 0 ? almacenes.value[0].id : null,
+      categoria_id: categorias.value.length > 0 ? categorias.value[0].id : null,
+      marca_id: null,
+      unidad_medida_id: unidades.value.length > 0 ? unidades.value[0].id : null,
+      codigo: '',
+      nombre: '',
+      descripcion: ''
+    }
+  }
   showModal.value = true
 }
 
@@ -390,11 +431,16 @@ async function guardarArticulo() {
 
   saving.value = true
   try {
-    await api.createArticulo({
+    const payload = {
       ...form.value,
       variantes,
       dato_ids
-    })
+    }
+    if (editingArticulo.value) {
+      await api.updateArticulo(editingArticulo.value, payload)
+    } else {
+      await api.createArticulo(payload)
+    }
     showModal.value = false
     await loadArticulos()
   } catch (err) {
