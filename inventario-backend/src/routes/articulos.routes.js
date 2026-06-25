@@ -113,9 +113,26 @@ async function articulosRoutes(fastify) {
     try {
       await conn.beginTransaction();
 
+      // Generar código auto-incremental ART-YYYY-XXXX
+      let finalCodigo = codigo;
+      if (!finalCodigo || !finalCodigo.trim()) {
+        const year = new Date().getFullYear();
+        const prefix = `ART-${year}`;
+        const [lastCode] = await conn.query(
+          "SELECT codigo FROM articulos WHERE codigo LIKE ? ORDER BY id DESC LIMIT 1",
+          [`${prefix}-%`]
+        );
+        let nextNum = 1;
+        if (lastCode.length > 0) {
+          const parts = lastCode[0].codigo.split('-');
+          nextNum = parseInt(parts[2], 10) + 1;
+        }
+        finalCodigo = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+      }
+
       const [artResult] = await conn.query(
         'INSERT INTO articulos (almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0]
+        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, finalCodigo, nombre, descripcion || null, requiere_devolucion ? 1 : 0]
       );
       const articuloId = artResult.insertId;
 
@@ -189,6 +206,21 @@ async function articulosRoutes(fastify) {
     } finally {
       conn.release();
     }
+  });
+
+  // PATCH /api/articulos/:id/estado — Cambiar estado de un artículo
+  fastify.patch('/:id/estado', async (request, reply) => {
+    const { id } = request.params;
+    const { estado } = request.body;
+    if (!estado) return reply.code(400).send({ error: 'Estado es obligatorio' });
+
+    const [result] = await pool.query('UPDATE articulos SET estado = ? WHERE id = ?', [estado, id]);
+    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
+    
+    // Opcional: También cambiar estado a todas sus variantes
+    await pool.query('UPDATE articulo_items SET estado = ? WHERE articulo_id = ?', [estado, id]);
+
+    return { data: { id: Number(id), estado } };
   });
 
   // PATCH /api/articulos/:id/devolucion — Toggle requiere_devolucion

@@ -13,7 +13,11 @@
               <td class="text-muted">{{ i + 1 }}</td>
               <td class="font-semibold">{{ u.nombre }}</td>
               <td><span class="badge badge-primary">{{ u.abreviatura || '—' }}</span></td>
-              <td><span class="badge badge-success">{{ u.estado }}</span></td>
+              <td>
+                <span class="badge" :class="u.estado === 'Activo' ? 'badge-success' : 'badge-danger'" style="cursor: pointer;" @click="toggleEstado(u)" :title="'Clic para cambiar a ' + (u.estado === 'Activo' ? 'Inactivo' : 'Activo')">
+                  {{ u.estado }}
+                </span>
+              </td>
               <td v-if="auth.isAdmin">
                 <div class="flex gap-1">
                   <button class="btn btn-ghost btn-icon" @click="openModal(u)"><Pencil :size="16" /></button>
@@ -39,6 +43,13 @@
           <div class="flex flex-col gap-4">
             <div class="form-group"><label class="form-label">Nombre *</label><input v-model="form.nombre" type="text" class="form-input" placeholder="Ej: Kilogramo" /></div>
             <div class="form-group"><label class="form-label">Abreviatura</label><input v-model="form.abreviatura" type="text" class="form-input" placeholder="Ej: Kg" /></div>
+            <div class="form-group" v-if="editing">
+              <label class="form-label">Estado</label>
+              <select v-model="form.estado" class="form-select">
+                <option value="Activo">Activo</option>
+                <option value="Inactivo">Inactivo</option>
+              </select>
+            </div>
           </div>
           <div class="text-sm" style="color: var(--color-danger); margin-top: var(--space-3);" v-if="formError">⚠ {{ formError }}</div>
         </div>
@@ -81,9 +92,19 @@ async function cargar() {
 
 function openModal(u = null) {
   editing.value = u
-  form.value = u ? { nombre: u.nombre, abreviatura: u.abreviatura || '' } : { nombre: '', abreviatura: '' }
+  form.value = u ? { nombre: u.nombre, abreviatura: u.abreviatura || '', estado: u.estado || 'Activo' } : { nombre: '', abreviatura: '' }
   formError.value = ''
   showModal.value = true
+}
+
+async function toggleEstado(u) {
+  const nuevoEstado = u.estado === 'Activo' ? 'Inactivo' : 'Activo'
+  try {
+    await api.updateUnidad(u.id, { nombre: u.nombre, abreviatura: u.abreviatura, estado: nuevoEstado })
+    await cargar()
+  } catch (err) {
+    alert('Error al cambiar estado: ' + err.message)
+  }
 }
 
 async function guardar() {

@@ -79,7 +79,11 @@
                 <td class="font-semibold text-center">{{ art.stock_total }}</td>
                 <td class="text-sm">{{ art.almacen_nombre }}</td>
                 <td>
-                  <span class="badge" :class="art.estado === 'Activo' ? 'badge-success' : 'badge-danger'">
+                  <span class="badge" 
+                        :class="[art.estado === 'Activo' ? 'badge-success' : 'badge-danger', { 'cursor-pointer': auth.isAdmin }]"
+                        @click="auth.isAdmin && toggleEstado(art)"
+                        :title="auth.isAdmin ? 'Clic para cambiar estado' : ''"
+                        style="transition: opacity 0.2s;">
                     {{ art.estado }}
                   </span>
                 </td>
@@ -136,9 +140,9 @@
                 <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
               </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" v-if="editingArticulo">
               <label class="form-label">Código</label>
-              <input v-model="form.codigo" type="text" class="form-input" placeholder="Auto-generado o manual" />
+              <input v-model="form.codigo" type="text" class="form-input" readonly style="background: var(--color-gray-50); color: var(--color-primary); font-weight: 600;" />
             </div>
           </div>
           <div class="form-group mb-4">
@@ -162,7 +166,7 @@
             <div class="form-group">
               <label class="form-label">Unidad de Medida *</label>
               <select v-model="form.unidad_medida_id" class="form-select">
-                <option v-for="u in unidades" :key="u.id" :value="u.id">{{ u.nombre }}</option>
+                <option v-for="u in unidades.filter(u => u.estado === 'Activo')" :key="u.id" :value="u.id">{{ u.nombre }}</option>
               </select>
             </div>
           </div>
@@ -220,7 +224,7 @@
                   type="number"
                   class="variant-stock-input"
                   placeholder="Stock"
-                  min="0"
+                  min="1"
                   @click.stop
                 />
               </div>
@@ -349,6 +353,20 @@ async function loadArticulos() {
   }
 }
 
+async function toggleEstado(art) {
+  if (!auth.isAdmin) return
+  
+  const nuevoEstado = art.estado === 'Activo' ? 'Inactivo' : 'Activo'
+  if (!confirm(`¿Cambiar estado del artículo a ${nuevoEstado}?`)) return
+  
+  try {
+    await api.toggleEstadoArticulo(art.id, nuevoEstado)
+    art.estado = nuevoEstado
+  } catch (error) {
+    alert("Error al cambiar estado: " + error.message)
+  }
+}
+
 async function openModal(id = null) {
   formError.value = ''
   datosAsignados.value = []
@@ -418,12 +436,21 @@ async function guardarArticulo() {
   let variantes = []
 
   if (selectedColors.length > 0) {
-    variantes = selectedColors.map(c => ({ color_id: c.id, stock: c.stock || 0 }))
+    // Validar stock mínimo de 1 al crear
+    if (!editingArticulo.value) {
+      const sinStock = selectedColors.find(c => !c.stock || c.stock < 1)
+      if (sinStock) {
+        formError.value = `El color "${sinStock.nombre}" debe tener al menos 1 de stock`
+        return
+      }
+    }
+    variantes = selectedColors.map(c => ({ color_id: c.id, stock: c.stock || 1 }))
   } else {
-    // Auto-asignar S/N
+    // Auto-asignar S/N con stock mínimo de 1
     const sinColor = availableColors.value.find(c => c.nombre === 'S/N')
     if (sinColor) {
-      variantes = [{ color_id: sinColor.id, stock: 0 }]
+      formError.value = 'Debe seleccionar al menos un color y asignar stock mínimo de 1'
+      return
     }
   }
 

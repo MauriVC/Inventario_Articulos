@@ -25,10 +25,11 @@
           <Package :size="20" />
           <span>Artículos</span>
         </router-link>
-        <router-link to="/paquetes" class="sidebar-link" :class="{ active: $route.name === 'Paquetes' }">
+        <!-- Paquetes oculto visualmente, la ruta sigue disponible -->
+        <!-- <router-link to="/paquetes" class="sidebar-link" :class="{ active: $route.name === 'Paquetes' }">
           <Boxes :size="20" />
           <span>Paquetes</span>
-        </router-link>
+        </router-link> -->
       </div>
 
       <div class="sidebar-section">

@@ -270,7 +270,7 @@ async function loadAlmacenData() {
     for (const art of resArt.data) {
       if (art.estado !== 'Activo') continue
       for (const v of art.variantes) {
-        if (v.estado !== 'Activo' || v.stock <= 0) continue
+        if (v.estado !== 'Activo') continue
         flatVariantes.push({
           articulo_item_id: v.id,
           nombre: art.nombre,

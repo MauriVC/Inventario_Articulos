@@ -102,10 +102,11 @@
           <div class="grid-2 mb-4">
             <div><span class="text-sm text-muted">Código</span><p class="font-semibold">{{ selectedMov.codigo }}</p></div>
             <div><span class="text-sm text-muted">Fecha</span><p class="font-medium">{{ new Date(selectedMov.fecha_movimiento).toLocaleString('es-ES') }}</p></div>
-            <div><span class="text-sm text-muted">Solicitante</span><p class="font-medium">{{ selectedMov.solicitante_nombre || '—' }} <span v-if="selectedMov.solicitante_ci">(CI: {{ selectedMov.solicitante_ci }})</span></p></div>
-            <div><span class="text-sm text-muted">{{ selectedMov.tipo === 'ENTRADA' ? 'Procedencia' : 'Destino' }}</span><p class="font-medium">{{ selectedMov.destino_procedencia || '—' }}</p></div>
+            <div><span class="text-sm text-muted">{{ selectedMov.tipo === 'BAJA' ? 'Responsable' : 'Solicitante' }}</span><p class="font-medium">{{ selectedMov.solicitante_nombre || '—' }} <span v-if="selectedMov.solicitante_ci">(CI: {{ selectedMov.solicitante_ci }})</span></p></div>
+            <div v-if="selectedMov.tipo === 'BAJA'"><span class="text-sm text-muted">Motivo de Baja</span><p class="font-medium" style="color: var(--color-warning);">{{ selectedMov.motivo_baja || '—' }}</p></div>
+            <div v-else><span class="text-sm text-muted">{{ selectedMov.tipo === 'ENTRADA' ? 'Procedencia' : 'Destino' }}</span><p class="font-medium">{{ selectedMov.destino_procedencia || '—' }}</p></div>
             <div><span class="text-sm text-muted">Almacén</span><p class="font-medium">{{ selectedMov.almacen_nombre }}</p></div>
-            <div><span class="text-sm text-muted">Observación</span><p class="font-medium">{{ selectedMov.observacion || 'Ninguna' }}</p></div>
+            <div><span class="text-sm text-muted">Observación General</span><p class="font-medium">{{ selectedMov.observacion || 'Ninguna' }}</p></div>
           </div>
 
           <div class="paquete-info mb-4" v-if="selectedMov.paquete_nombre">
@@ -121,21 +122,22 @@
           <h3 class="font-semibold mb-3" style="font-size: var(--font-size-base); color: var(--color-gray-700);">Artículos del movimiento</h3>
           <table class="table">
             <thead>
-              <tr><th>Artículo</th><th>Color</th><th class="text-center">Cantidad</th><th class="text-center">Stock Ant.</th><th class="text-center">Stock Post.</th><th class="text-center">Devolución</th></tr>
+              <tr><th>Artículo</th><th>Color</th><th class="text-center">Cantidad</th><th class="text-center">Stock Ant.</th><th class="text-center">Stock Post.</th><th v-if="selectedMov.tipo === 'BAJA'">Observación</th><th class="text-center" v-else>Devolución</th></tr>
             </thead>
             <tbody>
               <tr v-for="(d, i) in selectedMov.detalles" :key="i">
                 <td class="font-medium">{{ d.articulo_nombre }}</td>
                 <td>
                   <div class="flex items-center gap-2">
-                    <span class="color-dot" :style="{ background: d.codigo_hex, width: '14px', height: '14px' }"></span>
+                    <span class="color-dot" :style="{ background: d.codigo_hex, width: '14px', height: '14px', display: 'inline-block', borderRadius: '50%' }"></span>
                     {{ d.color_nombre }}
                   </div>
                 </td>
                 <td class="font-semibold text-center">{{ d.cantidad }}</td>
                 <td class="text-center text-muted">{{ d.stock_anterior }}</td>
                 <td class="text-center font-medium">{{ d.stock_posterior }}</td>
-                <td class="text-center">
+                <td v-if="selectedMov.tipo === 'BAJA'" class="text-sm text-muted">{{ d.observacion || '—' }}</td>
+                <td class="text-center" v-else>
                   <span v-if="d.requiere_devolucion" class="badge badge-devolucion">
                     <RotateCcw :size="10" /> DEVUELVE
                   </span>

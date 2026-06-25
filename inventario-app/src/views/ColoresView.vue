@@ -11,7 +11,7 @@
           <tbody>
             <tr v-for="(c, i) in colores" :key="c.id">
               <td class="text-muted">{{ i + 1 }}</td>
-              <td><span class="color-dot" :style="{ background: c.codigo_hex, width: '20px', height: '20px' }"></span></td>
+              <td><span class="color-dot" :style="{ background: c.codigo_hex, width: '20px', height: '20px', display: 'inline-block', borderRadius: '50%', border: '1px solid #ccc' }"></span></td>
               <td class="font-semibold">{{ c.nombre }}</td>
               <td class="text-muted font-mono text-sm">{{ c.codigo_hex }}</td>
               <td><span class="badge badge-success">{{ c.estado }}</span></td>
