@@ -5,11 +5,16 @@ const { pool } = require('../config/database');
 
 async function almacenesRoutes(fastify) {
 
-  // GET /api/almacenes — Listar todos
+  // GET /api/almacenes — Listar todos (con conteo de artículos)
   fastify.get('/', async (request, reply) => {
-    const [rows] = await pool.query(
-      'SELECT id, nombre, ubicacion, descripcion, estado, created_at FROM almacenes ORDER BY nombre'
-    );
+    const [rows] = await pool.query(`
+      SELECT a.id, a.nombre, a.ubicacion, a.descripcion, a.estado, a.created_at,
+             COUNT(art.id) AS totalArticulos
+      FROM almacenes a
+      LEFT JOIN articulos art ON art.almacen_id = a.id
+      GROUP BY a.id
+      ORDER BY a.nombre
+    `);
     return { data: rows };
   });
 

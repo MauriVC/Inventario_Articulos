@@ -21,6 +21,9 @@ async function registerRoutes(fastify) {
   // Auth & Usuarios
   fastify.register(require('./auth.routes'),         { prefix: '/api/auth' });
   fastify.register(require('./usuarios.routes'),     { prefix: '/api/usuarios' });
+
+  // Dashboard
+  fastify.register(require('./dashboard.routes'),    { prefix: '/api/dashboard' });
 }
 
 module.exports = registerRoutes;
