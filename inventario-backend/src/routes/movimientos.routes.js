@@ -113,6 +113,63 @@ async function movimientosRoutes(fastify) {
     return { data };
   });
 
+  // GET /api/movimientos/solicitante/:ci — Autocompletar datos del solicitante
+  fastify.get('/solicitante/:ci', async (request, reply) => {
+    const { ci } = request.params;
+    const [rows] = await pool.query(`
+      SELECT solicitante_nombre AS nombre, solicitante_telefono AS telefono
+      FROM movimientos
+      WHERE solicitante_ci = ? AND solicitante_nombre IS NOT NULL
+      ORDER BY fecha_movimiento DESC
+      LIMIT 1
+    `, [ci]);
+    if (rows.length === 0) return reply.code(404).send({ error: 'Solicitante no encontrado' });
+    return { data: rows[0] };
+  });
+
+  // GET /api/movimientos/pendientes-globales — Obtener artículos pendientes de devolución globales
+  fastify.get('/pendientes-globales', async (request) => {
+    // 1. Obtener todas las salidas para artículos que requieren devolución
+    const [salidas] = await pool.query(`
+      SELECT md.articulo_item_id, SUM(md.cantidad) AS total_salido
+      FROM movimiento_detalles md
+      JOIN movimientos m ON md.movimiento_id = m.id
+      JOIN articulo_items ai ON md.articulo_item_id = ai.id
+      JOIN articulos a ON ai.articulo_id = a.id
+      WHERE m.tipo = 'SALIDA' AND a.requiere_devolucion = 1
+      GROUP BY md.articulo_item_id
+    `);
+
+    if (salidas.length === 0) return { data: [] };
+    const itemIds = salidas.map(s => s.articulo_item_id);
+
+    // 2. Obtener todas las entradas (devoluciones) para esos items
+    const [entradas] = await pool.query(`
+      SELECT md.articulo_item_id, SUM(md.cantidad) AS total_devuelto
+      FROM movimiento_detalles md
+      JOIN movimientos m ON md.movimiento_id = m.id
+      WHERE m.tipo = 'ENTRADA' AND m.es_devolucion = 1 AND md.articulo_item_id IN (?)
+      GROUP BY md.articulo_item_id
+    `, [itemIds]);
+
+    const devueltoMap = {};
+    for (const e of entradas) {
+      devueltoMap[e.articulo_item_id] = Number(e.total_devuelto);
+    }
+
+    // 3. Calcular pendientes globales
+    const pendientes = [];
+    for (const s of salidas) {
+      const devuelto = devueltoMap[s.articulo_item_id] || 0;
+      const pendiente = Number(s.total_salido) - devuelto;
+      if (pendiente > 0) {
+        pendientes.push({ articulo_item_id: s.articulo_item_id, max_devolucion: pendiente });
+      }
+    }
+
+    return { data: pendientes };
+  });
+
   // GET /api/movimientos/:id — Detalle con artículos
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params;
@@ -145,7 +202,8 @@ async function movimientosRoutes(fastify) {
       tipo, almacen_id, paquete_id,
       solicitante_ci, solicitante_nombre, solicitante_telefono,
       destino_procedencia, motivo_baja, observacion,
-      detalles // [{ articulo_item_id, cantidad }]
+      detalles, // [{ articulo_item_id, cantidad }]
+      es_devolucion = false // Nuevo campo desde el frontend
     } = request.body;
 
     if (!tipo || !almacen_id || !detalles || detalles.length === 0) {
@@ -174,11 +232,11 @@ async function movimientosRoutes(fastify) {
 
       // Insertar cabecera
       const [movResult] = await conn.query(
-        `INSERT INTO movimientos (codigo, tipo, almacen_id, usuario_id, paquete_id,
+        `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, paquete_id,
          solicitante_ci, solicitante_nombre, solicitante_telefono,
          destino_procedencia, motivo_baja, observacion)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [codigo, tipo, almacen_id, 1, paquete_id || null,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [codigo, tipo, es_devolucion ? 1 : 0, almacen_id, 1, paquete_id || null,
          solicitante_ci || null, solicitante_nombre || null, solicitante_telefono || null,
          destino_procedencia || null, motivo_baja || null, observacion || null]
       );

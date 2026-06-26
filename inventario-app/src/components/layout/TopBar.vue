@@ -11,18 +11,74 @@
     <div class="topbar-right">
       <div class="topbar-search">
         <Search :size="16" />
-        <input type="text" placeholder="Buscar..." class="topbar-search-input" />
+        <input 
+          type="text" 
+          placeholder="Buscar pantalla..." 
+          class="topbar-search-input" 
+          v-model="searchQuery"
+          @focus="isSearchFocused = true"
+          @blur="handleBlur"
+        />
+        <!-- Dropdown de Resultados -->
+        <div class="search-dropdown" v-if="isSearchFocused && searchQuery">
+          <div 
+            class="search-item" 
+            v-for="res in searchResults" 
+            :key="res.path"
+            @mousedown.prevent="goTo(res.path)"
+          >
+            {{ res.name }}
+          </div>
+          <div class="search-item text-muted" v-if="searchResults.length === 0">
+            No se encontraron resultados
+          </div>
+        </div>
       </div>
-      <button class="topbar-icon-btn" title="Notificaciones">
-        <Bell :size="20" />
-        <span class="topbar-notification-dot"></span>
-      </button>
     </div>
   </header>
 </template>
 
 <script setup>
-import { Search, Bell, ChevronRight } from 'lucide-vue-next'
+import { Search, ChevronRight } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+const searchQuery = ref('')
+const isSearchFocused = ref(false)
+
+const searchablePages = [
+  { name: 'Dashboard', path: '/dashboard' },
+  { name: 'Artículos (Inventario)', path: '/articulos' },
+  { name: 'Categorías', path: '/categorias' },
+  { name: 'Marcas', path: '/marcas' },
+  { name: 'Unidades de Medida', path: '/unidades' },
+  { name: 'Colores', path: '/colores' },
+  { name: 'Usuarios del Sistema', path: '/usuarios' },
+  { name: 'Movimiento: Nueva Salida', path: '/movimientos/salida' },
+  { name: 'Movimiento: Nueva Entrada / Devolución', path: '/movimientos/entrada' },
+  { name: 'Movimiento: Dar de Baja', path: '/movimientos/baja' },
+  { name: 'Historial de Movimientos', path: '/historial' },
+]
+
+const searchResults = computed(() => {
+  if (!searchQuery.value) return []
+  const q = searchQuery.value.toLowerCase()
+  return searchablePages.filter(p => p.name.toLowerCase().includes(q))
+})
+
+function goTo(path) {
+  router.push(path)
+  searchQuery.value = ''
+  isSearchFocused.value = false
+}
+
+function handleBlur() {
+  // Pequeño timeout para permitir que el click registre antes de ocultar
+  setTimeout(() => {
+    isSearchFocused.value = false
+  }, 150)
+}
 </script>
 
 <style scoped>
@@ -95,25 +151,37 @@ import { Search, Bell, ChevronRight } from 'lucide-vue-next'
 .topbar-search-input::placeholder {
   color: var(--color-gray-400);
 }
-.topbar-icon-btn {
-  position: relative;
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--color-gray-500);
-  transition: all var(--transition-fast);
-}
-.topbar-icon-btn:hover {
-  background: var(--color-gray-100);
-  color: var(--color-gray-700);
-}
-.topbar-notification-dot {
+.search-dropdown {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  background: var(--color-danger);
-  border-radius: var(--radius-full);
-  border: 2px solid var(--color-white);
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  background: white;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 50;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.search-item {
+  padding: 10px 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+.search-item:hover {
+  background-color: var(--color-gray-50);
+  color: var(--color-primary);
+}
+.text-muted {
+  color: var(--color-gray-400);
+  cursor: default;
+}
+.text-muted:hover {
+  background-color: transparent;
+  color: var(--color-gray-400);
 }
 </style>

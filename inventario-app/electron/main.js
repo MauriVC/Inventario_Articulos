@@ -3,6 +3,9 @@ const path = require('path')
 
 const isDev = !app.isPackaged
 
+// Disable hardware acceleration to prevent UI freezes (input freezing) on some Windows machines
+app.disableHardwareAcceleration()
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1400,

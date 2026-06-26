@@ -12,6 +12,20 @@
       <span class="text-muted text-sm">Código: <strong style="color: var(--color-success);">Auto-generado</strong></span>
     </div>
 
+    <!-- Toggle Es Devolución -->
+    <div class="card mb-4" style="background: rgba(56, 161, 105, 0.05); border: 1px solid rgba(56, 161, 105, 0.2);">
+      <div class="card-body py-3 flex justify-between items-center">
+        <div>
+          <h4 class="font-semibold" style="color: var(--color-success);">¿Es una devolución?</h4>
+          <p class="text-sm text-muted">Active esta opción si el ingreso corresponde a material que fue prestado previamente.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" v-model="esDevolucion" @change="handleDevolucionToggle">
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </div>
+
     <div class="mov-form-grid">
       <!-- Solicitante Section -->
       <div class="card">
@@ -22,8 +36,9 @@
               <label class="form-label">Carnet de Identidad *</label>
               <div class="form-input-icon">
                 <Search :size="16" />
-                <input v-model="solicitante.carnet" type="text" class="form-input" placeholder="Buscar por carnet..." />
+                <input v-model="solicitante.carnet" type="text" class="form-input" placeholder="Buscar por carnet..." @input="buscarSolicitante" />
               </div>
+              <span class="text-xs text-muted" v-if="solicitanteEncontrado">✓ Solicitante encontrado, datos autocompletados</span>
             </div>
             <div class="form-group">
               <label class="form-label">Nombre Completo *</label>
@@ -119,7 +134,10 @@
                   <span class="badge badge-info">{{ item.stockActual }}</span>
                 </td>
                 <td style="width: 140px;">
-                  <input v-model.number="item.cantidad" type="number" min="1" class="form-input" style="width: 100px; text-align: center;" />
+                  <div class="flex flex-col">
+                    <input v-model.number="item.cantidad" type="number" min="1" :max="esDevolucion ? item.maxDevolucion : null" class="form-input" style="width: 100px; text-align: center;" @change="validateCantidad(item)" />
+                    <span class="text-xs text-danger" v-if="esDevolucion && item.cantidad > item.maxDevolucion">Máx: {{ item.maxDevolucion }}</span>
+                  </div>
                 </td>
                 <td style="width: 200px;">
                   <input v-model="item.observacion" type="text" class="form-input" placeholder="Ej: Buen estado" style="font-size: 13px;" />
@@ -164,10 +182,13 @@ const almacenes = ref([])
 const selectedAlmacen = ref('')
 
 const solicitante = ref({ carnet: '', nombre: '', telefono: '' })
+const solicitanteEncontrado = ref(false)
 const procedencia = ref('')
 const observacion = ref('')
 const articuloSearch = ref('')
 const saving = ref(false)
+const esDevolucion = ref(true)
+const pendientesList = ref([])
 
 const items = ref([])
 const allArticulos = ref([])
@@ -187,6 +208,10 @@ onMounted(async () => {
     if (almacenes.value.length > 0) {
       selectedAlmacen.value = almacenes.value[0].id
       await loadAlmacenData()
+    }
+    
+    if (esDevolucion.value) {
+      await cargarPendientes();
     }
   } catch (error) {
     console.error("Error cargando almacenes:", error)
@@ -237,10 +262,66 @@ const searchResults = computed(() => {
   return allArticulos.value.filter(a => a.nombre.toLowerCase().includes(articuloSearch.value.toLowerCase()))
 })
 
+let debounceTimeout;
+async function buscarSolicitante() {
+  clearTimeout(debounceTimeout);
+  solicitanteEncontrado.value = false;
+  
+  const ci = solicitante.value.carnet.trim();
+  if (ci.length < 4) return;
+
+  debounceTimeout = setTimeout(async () => {
+    try {
+      const res = await api.getSolicitanteByCi(ci);
+      if (res.data) {
+        solicitante.value.nombre = res.data.nombre || '';
+        solicitante.value.telefono = res.data.telefono || '';
+        solicitanteEncontrado.value = true;
+      }
+    } catch (err) {
+      solicitanteEncontrado.value = false;
+    }
+  }, 500);
+}
+
+async function cargarPendientes() {
+  try {
+    const res = await api.getPendientesGlobales();
+    pendientesList.value = res.data || [];
+  } catch (err) {
+    pendientesList.value = [];
+  }
+}
+
+function handleDevolucionToggle() {
+  items.value = [];
+  if (esDevolucion.value) {
+    cargarPendientes();
+  }
+}
+
+function validateCantidad(item) {
+  if (esDevolucion.value && item.cantidad > item.maxDevolucion) {
+    item.cantidad = item.maxDevolucion;
+  }
+}
+
 function addArticulo(a) {
+  let maxDevolucion = null;
+  if (esDevolucion.value) {
+    const pendiente = pendientesList.value.find(p => p.articulo_item_id === a.articulo_item_id);
+    if (!pendiente) {
+      alert('Actualmente no existe ningún préstamo pendiente de devolución para este artículo.');
+      return;
+    }
+    maxDevolucion = pendiente.max_devolucion;
+  }
+
   const existing = items.value.find(i => i.articulo_item_id === a.articulo_item_id)
   if (existing) {
-    existing.cantidad++
+    if (!esDevolucion.value || existing.cantidad < existing.maxDevolucion) {
+      existing.cantidad++
+    }
   } else {
     items.value.push({
       articulo_item_id: a.articulo_item_id,
@@ -249,7 +330,8 @@ function addArticulo(a) {
       hex: a.hex,
       stockActual: a.stock,
       cantidad: 1,
-      observacion: ''
+      observacion: '',
+      maxDevolucion: maxDevolucion
     })
   }
   articuloSearch.value = ''
@@ -272,6 +354,7 @@ async function registrarEntrada() {
       solicitante_telefono: solicitante.value.telefono,
       destino_procedencia: procedencia.value,
       observacion: observacion.value,
+      es_devolucion: esDevolucion.value,
       detalles: items.value.map(i => ({
         articulo_item_id: i.articulo_item_id,
         cantidad: i.cantidad,

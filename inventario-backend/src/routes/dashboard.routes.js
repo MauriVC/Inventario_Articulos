@@ -12,52 +12,24 @@ async function dashboardRoutes(fastify) {
     const [[{ salidas_dia }]] = await pool.query('SELECT COUNT(DISTINCT m.id) AS salidas_dia FROM movimientos m WHERE DATE(m.fecha_movimiento) = ? AND m.tipo = "SALIDA"', [targetDate]);
     const [[{ entradas_dia }]] = await pool.query('SELECT COUNT(DISTINCT m.id) AS entradas_dia FROM movimientos m WHERE DATE(m.fecha_movimiento) = ? AND m.tipo = "ENTRADA"', [targetDate]);
 
-    // 2. Gráfico (Mensual o Diario)
+    // 2. Gráfico (Actividad por Hora del Día seleccionado)
     let chartRows = [];
     let chartData = [];
     
-    if (month && month !== 'all') {
-      // Group by Day (1 to 31)
-      const daysInMonth = new Date(year, month, 0).getDate();
-      [chartRows] = await pool.query(`
-        SELECT DAY(m.fecha_movimiento) AS periodo, m.tipo, SUM(md.cantidad) AS total_cantidad
-        FROM movimientos m
-        JOIN movimiento_detalles md ON m.id = md.movimiento_id
-        WHERE YEAR(m.fecha_movimiento) = ? AND MONTH(m.fecha_movimiento) = ?
-        GROUP BY periodo, m.tipo
-      `, [year, month]);
+    [chartRows] = await pool.query(`
+      SELECT HOUR(m.fecha_movimiento) AS periodo, m.tipo, SUM(md.cantidad) AS total_cantidad
+      FROM movimientos m
+      JOIN movimiento_detalles md ON m.id = md.movimiento_id
+      WHERE DATE(m.fecha_movimiento) = ?
+      GROUP BY periodo, m.tipo
+    `, [targetDate]);
 
-      chartData = Array.from({ length: daysInMonth }, (_, i) => ({
-        periodo: i + 1,
-        label: String(i + 1),
-        entrada: 0,
-        salida: 0
-      }));
-    } else {
-      // Group by Month (1 to 12)
-      [chartRows] = await pool.query(`
-        SELECT MONTH(m.fecha_movimiento) AS periodo, m.tipo, SUM(md.cantidad) AS total_cantidad
-        FROM movimientos m
-        JOIN movimiento_detalles md ON m.id = md.movimiento_id
-        WHERE YEAR(m.fecha_movimiento) = ?
-        GROUP BY periodo, m.tipo
-      `, [year]);
-
-      chartData = [
-        { periodo: 1, label: 'Ene', entrada: 0, salida: 0 },
-        { periodo: 2, label: 'Feb', entrada: 0, salida: 0 },
-        { periodo: 3, label: 'Mar', entrada: 0, salida: 0 },
-        { periodo: 4, label: 'Abr', entrada: 0, salida: 0 },
-        { periodo: 5, label: 'May', entrada: 0, salida: 0 },
-        { periodo: 6, label: 'Jun', entrada: 0, salida: 0 },
-        { periodo: 7, label: 'Jul', entrada: 0, salida: 0 },
-        { periodo: 8, label: 'Ago', entrada: 0, salida: 0 },
-        { periodo: 9, label: 'Sep', entrada: 0, salida: 0 },
-        { periodo: 10, label: 'Oct', entrada: 0, salida: 0 },
-        { periodo: 11, label: 'Nov', entrada: 0, salida: 0 },
-        { periodo: 12, label: 'Dic', entrada: 0, salida: 0 }
-      ];
-    }
+    chartData = Array.from({ length: 24 }, (_, i) => ({
+      periodo: i,
+      label: `${String(i).padStart(2, '0')}:00`,
+      entrada: 0,
+      salida: 0
+    }));
 
     chartRows.forEach(row => {
       const idx = chartData.findIndex(d => d.periodo === row.periodo);
@@ -114,20 +86,20 @@ async function dashboardRoutes(fastify) {
       JOIN articulos a ON ai.articulo_id = a.id
       JOIN colores c ON ai.color_id = c.id
       JOIN movimientos m ON md.movimiento_id = m.id
-      WHERE MONTH(m.fecha_movimiento) = MONTH(CURDATE()) AND YEAR(m.fecha_movimiento) = YEAR(CURDATE())
+      WHERE DATE(m.fecha_movimiento) = ?
       GROUP BY ai.id
       ORDER BY total_movido DESC
       LIMIT 5
-    `);
+    `, [targetDate]);
 
     // 7. Distribución de movimientos del mes
     const [distRows] = await pool.query(`
       SELECT m.tipo, SUM(md.cantidad) as total
       FROM movimientos m
       JOIN movimiento_detalles md ON m.id = md.movimiento_id
-      WHERE MONTH(m.fecha_movimiento) = MONTH(CURDATE()) AND YEAR(m.fecha_movimiento) = YEAR(CURDATE())
+      WHERE DATE(m.fecha_movimiento) = ?
       GROUP BY m.tipo
-    `);
+    `, [targetDate]);
 
     return {
       data: {

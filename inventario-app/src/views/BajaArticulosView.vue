@@ -22,8 +22,9 @@
               <label class="form-label">Carnet de Identidad *</label>
               <div class="form-input-icon">
                 <Search :size="16" />
-                <input v-model="responsableCi" type="text" class="form-input" placeholder="Buscar por carnet..." />
+                <input v-model="responsableCi" type="text" class="form-input" placeholder="Buscar por carnet..." @input="buscarSolicitante" />
               </div>
+              <span class="text-xs text-muted" v-if="solicitanteEncontrado">✓ Solicitante encontrado, datos autocompletados</span>
             </div>
             <div class="form-group">
               <label class="form-label">Nombre Completo *</label>
@@ -183,6 +184,7 @@ const motivoBaja = ref('')
 const responsable = ref('')
 const responsableCi = ref('')
 const responsableTelefono = ref('')
+const solicitanteEncontrado = ref(false)
 const observacion = ref('')
 const articuloSearch = ref('')
 const saving = ref(false)
@@ -254,6 +256,29 @@ const searchResults = computed(() => {
   if (!articuloSearch.value) return []
   return allArticulos.value.filter(a => a.nombre.toLowerCase().includes(articuloSearch.value.toLowerCase()))
 })
+
+let debounceTimeout;
+async function buscarSolicitante() {
+  clearTimeout(debounceTimeout);
+  solicitanteEncontrado.value = false;
+  
+  const ci = responsableCi.value.trim();
+  if (ci.length < 4) return;
+
+  debounceTimeout = setTimeout(async () => {
+    try {
+      const res = await api.getSolicitanteByCi(ci);
+      if (res.data) {
+        responsable.value = res.data.nombre || '';
+        responsableTelefono.value = res.data.telefono || '';
+        solicitanteEncontrado.value = true;
+      }
+    } catch (err) {
+      // Ignorar 404 (no encontrado)
+      solicitanteEncontrado.value = false;
+    }
+  }, 500);
+}
 
 function addArticulo(a) {
   if (a.stock <= 0) {

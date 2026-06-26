@@ -39,7 +39,7 @@
           <!-- Pie Chart (Doughnut) -->
           <div class="card" style="height: 100%;">
             <div class="card-header border-b-0 pb-0">
-              <h3 class="font-bold text-gray-800">Distribución (Mes)</h3>
+              <h3 class="font-bold text-gray-800">Distribución (Día)</h3>
             </div>
             <div class="card-body flex-center flex-column" style="padding: var(--space-5) var(--space-4);">
               <div class="doughnut-chart-container">
@@ -64,29 +64,7 @@
           <!-- Activity Chart -->
           <div class="card" style="height: 100%;">
             <div class="card-header border-b-0 pb-0 flex items-center justify-between" style="flex-wrap: wrap; gap: 8px;">
-              <h3 class="font-bold text-gray-800">Actividad</h3>
-              <div class="flex items-center gap-2">
-                <select class="form-select text-sm font-medium" style="width: auto; padding: 4px 8px; border-radius: var(--radius-md); background-color: var(--color-gray-50);" v-model="selectedMonth" @change="loadDashboardData">
-                  <option value="all">Todo el Año</option>
-                  <option value="1">Enero</option>
-                  <option value="2">Febrero</option>
-                  <option value="3">Marzo</option>
-                  <option value="4">Abril</option>
-                  <option value="5">Mayo</option>
-                  <option value="6">Junio</option>
-                  <option value="7">Julio</option>
-                  <option value="8">Agosto</option>
-                  <option value="9">Septiembre</option>
-                  <option value="10">Octubre</option>
-                  <option value="11">Noviembre</option>
-                  <option value="12">Diciembre</option>
-                </select>
-                <select class="form-select text-sm font-medium" style="width: auto; padding: 4px 8px; border-radius: var(--radius-md); background-color: var(--color-gray-50);" v-model="selectedYear" @change="loadDashboardData">
-                  <option :value="currentYear">{{ currentYear }}</option>
-                  <option :value="currentYear - 1">{{ currentYear - 1 }}</option>
-                  <option :value="currentYear - 2">{{ currentYear - 2 }}</option>
-                </select>
-              </div>
+              <h3 class="font-bold text-gray-800">Actividad del Día</h3>
             </div>
             <div class="card-body" style="padding-bottom: 0;">
               <div class="chart-bars-wrapper">
@@ -142,7 +120,7 @@
             <!-- Top Artículos -->
             <div class="card">
               <div class="card-header border-b-0" style="padding: var(--space-4) var(--space-4) 0;">
-                <h3 class="font-bold text-gray-800" style="font-size: var(--font-size-sm);">Top Artículos (Mes)</h3>
+                <h3 class="font-bold text-gray-800" style="font-size: var(--font-size-sm);">Top Artículos (Día)</h3>
               </div>
               <div class="card-body" style="padding: 0;">
                 <div v-if="topArticulos.length === 0" class="p-4 text-center text-sm text-muted">
@@ -267,7 +245,7 @@ onMounted(async () => {
 async function loadDashboardData() {
   loading.value = true
   try {
-    const res = await api.getDashboardStats(selectedYear.value, selectedMonth.value, selectedDate.value)
+    const res = await api.getDashboardStats('', '', selectedDate.value)
     const d = res.data
     statsData.value = d.stats
     chartData.value = d.chartData
@@ -342,6 +320,7 @@ const pieChartBackground = computed(() => {
   border: none;
   border-radius: 16px;
   background-color: white;
+  min-width: 0;
 }
 
 .border-b-0 {
@@ -455,7 +434,6 @@ const pieChartBackground = computed(() => {
 .chart-bars-wrapper {
   position: relative;
   height: 200px;
-  padding: var(--space-4) 0;
   margin-top: var(--space-2);
   background: repeating-linear-gradient(
     to bottom,
@@ -464,18 +442,25 @@ const pieChartBackground = computed(() => {
     #f1f5f9 39px,
     #f1f5f9 40px
   );
+  overflow-x: auto;
+  overflow-y: hidden;
 }
+
+.chart-bars-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.chart-bars-wrapper::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
 .chart-bars {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  padding: var(--space-4) 0;
+  gap: 4px;
   height: 100%;
+  min-width: 800px;
+  padding: var(--space-4) 0;
 }
 .chart-bar-group {
   flex: 1;
@@ -532,9 +517,9 @@ const pieChartBackground = computed(() => {
   border: 2px solid;
   background-color: transparent;
 }
-.dot-entrada { border-color: #3b82f6; }
-.dot-salida { border-color: #1e293b; }
-.dot-baja { border-color: #f97316; }
+.dot-entrada { border-color: var(--color-success); }
+.dot-salida { border-color: var(--color-danger); }
+.dot-baja { border-color: var(--color-warning); }
 
 /* Quick Actions */
 .quick-actions {

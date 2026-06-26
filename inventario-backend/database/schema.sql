@@ -228,6 +228,7 @@ CREATE TABLE IF NOT EXISTS movimientos (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   codigo        VARCHAR(20) NOT NULL UNIQUE,
   tipo          ENUM('ENTRADA', 'SALIDA', 'BAJA') NOT NULL,
+  es_devolucion BOOLEAN DEFAULT FALSE,
   almacen_id    INT NOT NULL,
   usuario_id    INT NOT NULL COMMENT 'Usuario que registra el movimiento',
   paquete_id    INT DEFAULT NULL COMMENT 'Si la salida se originó desde un paquete, referencia al mismo',
@@ -271,6 +272,9 @@ CREATE TABLE IF NOT EXISTS movimiento_detalles (
 INSERT INTO colores (nombre, codigo_hex) VALUES ('S/N', '#E9ECEF');
 
 -- Unidades de medida iniciales
+INSERT INTO usuarios (carnet, nombres, apellidos, telefono, contrasena, rol, estado) VALUES
+  ('00000001', 'Super', 'Administrador', '70000001', 'admin123', 'SuperAdministrador', 'Activo');
+
 INSERT INTO unidad_medidas (nombre, abreviatura) VALUES
   ('Unidad', 'Ud'),
   ('Litro', 'L'),

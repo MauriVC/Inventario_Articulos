@@ -297,14 +297,27 @@ const searchResults = computed(() => {
 
 const itemsConDevolucion = computed(() => items.value.filter(i => i.requiereDevolucion))
 
-function buscarSolicitante() {
-  if (solicitante.value.carnet === '12345678') {
-    solicitante.value.nombre = 'Carlos Eduardo Pérez Mendoza'
-    solicitante.value.telefono = '70012345'
-    solicitanteEncontrado.value = true
-  } else {
-    solicitanteEncontrado.value = false
-  }
+let debounceTimeout;
+async function buscarSolicitante() {
+  clearTimeout(debounceTimeout);
+  solicitanteEncontrado.value = false;
+  
+  const ci = solicitante.value.carnet.trim();
+  if (ci.length < 4) return;
+
+  debounceTimeout = setTimeout(async () => {
+    try {
+      const res = await api.getSolicitanteByCi(ci);
+      if (res.data) {
+        solicitante.value.nombre = res.data.nombre || '';
+        solicitante.value.telefono = res.data.telefono || '';
+        solicitanteEncontrado.value = true;
+      }
+    } catch (err) {
+      // Ignorar 404 (no encontrado)
+      solicitanteEncontrado.value = false;
+    }
+  }, 500); // medio segundo de espera
 }
 
 function addArticulo(a) {

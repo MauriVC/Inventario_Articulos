@@ -5,15 +5,7 @@
       <div>
         <p class="text-muted">Gestiona los almacenes del sistema</p>
       </div>
- proy_bd_funcional(local)
-      <button class="btn btn-primary" @click="showModal = true" v-if="auth.isSuperAdmin">
-
- Updated upstream
-      <button class="btn btn-primary" @click="showModal = true">
-
       <button class="btn btn-primary" @click="openModal()" v-if="auth.isSuperAdmin">
- Stashed changes
- main
         <Plus :size="18" />
         Nuevo Almacén
       </button>
@@ -127,10 +119,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
- proy_bd_funcional(local)
-
 import { api } from '@/api'
- main
 import { auth } from '@/auth'
 
 const showModal = ref(false)
