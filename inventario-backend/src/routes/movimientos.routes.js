@@ -42,6 +42,77 @@ async function movimientosRoutes(fastify) {
     return { data: movimientos, total: countResult[0].total };
   });
 
+  // GET /api/movimientos/salidas-con-devolucion — Salidas con estado FIFO de devolución
+  fastify.get('/salidas-con-devolucion', async (request) => {
+    // 1. Obtener todas las salidas de artículos con requiere_devolucion
+    const [salidas] = await pool.query(`
+      SELECT m.id AS movimiento_id, m.codigo, m.fecha_movimiento,
+             m.solicitante_ci, m.solicitante_nombre, m.solicitante_telefono,
+             m.destino_procedencia,
+             alm.nombre AS almacen_nombre,
+             a.id AS articulo_id, a.nombre AS articulo_nombre, a.codigo AS articulo_codigo,
+             c.nombre AS color_nombre, c.codigo_hex,
+             md.articulo_item_id,
+             md.cantidad
+      FROM movimientos m
+      JOIN almacenes alm ON m.almacen_id = alm.id
+      JOIN movimiento_detalles md ON md.movimiento_id = m.id
+      JOIN articulo_items ai ON md.articulo_item_id = ai.id
+      JOIN articulos a ON ai.articulo_id = a.id
+      JOIN colores c ON ai.color_id = c.id
+      WHERE m.tipo = 'SALIDA' AND a.requiere_devolucion = 1
+      ORDER BY m.fecha_movimiento ASC
+    `);
+
+    if (salidas.length === 0) return { data: [] };
+
+    // 2. Obtener total de entradas por cada articulo_item_id
+    const itemIds = [...new Set(salidas.map(s => s.articulo_item_id))];
+    const [entradas] = await pool.query(`
+      SELECT md.articulo_item_id, SUM(md.cantidad) AS total_devuelto
+      FROM movimiento_detalles md
+      JOIN movimientos m ON md.movimiento_id = m.id
+      WHERE m.tipo = 'ENTRADA' AND md.articulo_item_id IN (?)
+      GROUP BY md.articulo_item_id
+    `, [itemIds]);
+
+    // Crear mapa de devoluciones por item
+    const devueltoMap = {};
+    for (const e of entradas) {
+      devueltoMap[e.articulo_item_id] = Number(e.total_devuelto);
+    }
+
+    // 3. Distribuir devoluciones FIFO: las salidas más antiguas se cubren primero
+    const restanteMap = {}; // cantidad de devoluciones restantes por distribuir per item
+    for (const itemId of itemIds) {
+      restanteMap[itemId] = devueltoMap[itemId] || 0;
+    }
+
+    // Recorrer salidas en orden cronológico (ASC) y asignar cuánto se cubrió
+    const data = salidas.map(s => {
+      const restante = restanteMap[s.articulo_item_id];
+      let pendiente;
+      if (restante >= s.cantidad) {
+        // Esta salida está completamente cubierta por devoluciones
+        pendiente = 0;
+        restanteMap[s.articulo_item_id] -= s.cantidad;
+      } else if (restante > 0) {
+        // Parcialmente cubierta
+        pendiente = s.cantidad - restante;
+        restanteMap[s.articulo_item_id] = 0;
+      } else {
+        // No cubierta
+        pendiente = s.cantidad;
+      }
+      return { ...s, pendiente };
+    });
+
+    // Devolver ordenado por fecha DESC (más recientes primero) para la vista
+    data.sort((a, b) => new Date(b.fecha_movimiento) - new Date(a.fecha_movimiento));
+
+    return { data };
+  });
+
   // GET /api/movimientos/:id — Detalle con artículos
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params;

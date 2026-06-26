@@ -161,17 +161,28 @@ async function articulosRoutes(fastify) {
   // PUT /api/articulos/:id — Actualizar datos básicos, atributos y variantes
   fastify.put('/:id', async (request, reply) => {
     const { id } = request.params;
+ proy_bd_funcional(local)
     const { categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
+
+    const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
+ main
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
+ proy_bd_funcional(local)
       // 1. Actualizar datos básicos
       const [result] = await conn.query(
         'UPDATE articulos SET categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
         [categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
+
+      // 1. Actualizar datos básicos (incluye almacen_id)
+      const [result] = await conn.query(
+        'UPDATE articulos SET almacen_id = ?, categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
+        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
+ main
       );
       
       if (result.affectedRows === 0) {
