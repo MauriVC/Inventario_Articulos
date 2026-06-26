@@ -72,7 +72,10 @@ export const api = {
   getArticulo: (id) => apiFetch(`/articulos/${id}`),
   createArticulo: (data) => apiFetch('/articulos', { method: 'POST', body: data }),
   updateArticulo: (id, data) => apiFetch(`/articulos/${id}`, { method: 'PUT', body: data }),
+ proy_bd_funcional(local)
+
   toggleEstadoArticulo: (id, estado) => apiFetch(`/articulos/${id}/estado`, { method: 'PATCH', body: { estado } }),
+ main
   deleteArticulo: (id) => apiFetch(`/articulos/${id}`, { method: 'DELETE' }),
   toggleDevolucion: (id, value) => apiFetch(`/articulos/${id}/devolucion`, { method: 'PATCH', body: { requiere_devolucion: value } }),
 
@@ -92,12 +95,20 @@ export const api = {
   },
   getMovimiento: (id) => apiFetch(`/movimientos/${id}`),
   createMovimiento: (data) => apiFetch('/movimientos', { method: 'POST', body: data }),
+proy_bd_funcional(local)
+
   getSalidasConDevolucion: () => apiFetch('/movimientos/salidas-con-devolucion'),
+ main
 
   // Auth
   login: (carnet, contrasena) => apiFetch('/auth/login', { method: 'POST', body: { carnet, contrasena } }),
 
   // Usuarios
+ proy_bd_funcional(local)
+  getUsuarios: () => apiFetch('/usuarios'),
+};
+
+
   getUsuarios: (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/usuarios${query ? '?' + query : ''}`);
@@ -117,3 +128,4 @@ export const api = {
     return apiFetch(`/dashboard${qs ? '?' + qs : ''}`);
   }
 };
+ main

@@ -28,7 +28,7 @@
         </div>
         <div class="paquete-card-footer">
           <span class="text-xs text-muted">{{ paq.items.length }} artículo{{ paq.items.length !== 1 ? 's' : '' }} · {{ totalItems(paq) }} unidades</span>
-          <div class="flex gap-1">
+          <div class="flex gap-1" v-if="auth.isAdmin">
             <button class="btn btn-ghost btn-icon" title="Editar"><Pencil :size="15" /></button>
             <button class="btn btn-ghost btn-icon" title="Eliminar"><Trash2 :size="15" style="color: var(--color-danger);" /></button>
           </div>
@@ -158,6 +158,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { Plus, Pencil, Trash2, X, Save, Search, Boxes, ShoppingCart, Minus } from 'lucide-vue-next'
+import { auth } from '@/auth'
 
 const showModal = ref(false)
 const busqueda = ref('')

@@ -79,13 +79,13 @@ async function articulosRoutes(fastify) {
     if (articulos.length === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
 
     const [variantes] = await pool.query(`
-      SELECT ai.id, ai.stock, ai.estado, c.nombre AS color_nombre, c.codigo_hex
+      SELECT ai.id, ai.stock, ai.estado, c.id AS color_id, c.nombre AS color_nombre, c.codigo_hex
       FROM articulo_items ai JOIN colores c ON ai.color_id = c.id
       WHERE ai.articulo_id = ?
     `, [id]);
 
     const [atributos] = await pool.query(`
-      SELECT d.nombre AS dato_nombre, at.nombre AS atributo_nombre
+      SELECT d.id AS dato_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
       FROM articulo_datos ad
       JOIN datos d ON ad.dato_id = d.id
       JOIN atributos at ON d.atributo_id = at.id
@@ -97,11 +97,10 @@ async function articulosRoutes(fastify) {
         ...articulos[0],
         variantes,
         stock_total: variantes.reduce((sum, v) => sum + v.stock, 0),
-        atributos: atributos.map(a => ({ atributo: a.atributo_nombre, dato: a.dato_nombre }))
+        atributos: atributos.map(a => ({ atributo: a.atributo_nombre, dato: a.dato_nombre, dato_id: a.dato_id }))
       }
     };
   });
-
   // POST /api/articulos — Crear artículo con variantes y atributos
   fastify.post('/', async (request, reply) => {
     const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, variantes, dato_ids } = request.body;
@@ -114,9 +113,26 @@ async function articulosRoutes(fastify) {
     try {
       await conn.beginTransaction();
 
+      // Generar código auto-incremental ART-YYYY-XXXX
+      let finalCodigo = codigo;
+      if (!finalCodigo || !finalCodigo.trim()) {
+        const year = new Date().getFullYear();
+        const prefix = `ART-${year}`;
+        const [lastCode] = await conn.query(
+          "SELECT codigo FROM articulos WHERE codigo LIKE ? ORDER BY id DESC LIMIT 1",
+          [`${prefix}-%`]
+        );
+        let nextNum = 1;
+        if (lastCode.length > 0) {
+          const parts = lastCode[0].codigo.split('-');
+          nextNum = parseInt(parts[2], 10) + 1;
+        }
+        finalCodigo = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+      }
+
       const [artResult] = await conn.query(
         'INSERT INTO articulos (almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0]
+        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, finalCodigo, nombre, descripcion || null, requiere_devolucion ? 1 : 0]
       );
       const articuloId = artResult.insertId;
 
@@ -142,20 +158,31 @@ async function articulosRoutes(fastify) {
     }
   });
 
-  // PUT /api/articulos/:id — Actualizar datos básicos
+  // PUT /api/articulos/:id — Actualizar datos básicos, atributos y variantes
   fastify.put('/:id', async (request, reply) => {
     const { id } = request.params;
+ proy_bd_funcional(local)
+    const { categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
+
     const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
+ main
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
+ proy_bd_funcional(local)
+      // 1. Actualizar datos básicos
+      const [result] = await conn.query(
+        'UPDATE articulos SET categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
+        [categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
+
       // 1. Actualizar datos básicos (incluye almacen_id)
       const [result] = await conn.query(
         'UPDATE articulos SET almacen_id = ?, categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
         [almacen_id, categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
+ main
       );
       
       if (result.affectedRows === 0) {
@@ -200,7 +227,11 @@ async function articulosRoutes(fastify) {
 
     const [result] = await pool.query('UPDATE articulos SET estado = ? WHERE id = ?', [estado, id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
-    return { data: { id: Number(id), nombre } };
+    
+    // Opcional: También cambiar estado a todas sus variantes
+    await pool.query('UPDATE articulo_items SET estado = ? WHERE articulo_id = ?', [estado, id]);
+
+    return { data: { id: Number(id), estado } };
   });
 
   // PATCH /api/articulos/:id/devolucion — Toggle requiere_devolucion

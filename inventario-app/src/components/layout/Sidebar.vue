@@ -25,10 +25,11 @@
           <Package :size="20" />
           <span>Artículos</span>
         </router-link>
-        <router-link to="/paquetes" class="sidebar-link" :class="{ active: $route.name === 'Paquetes' }">
+        <!-- Paquetes oculto visualmente, la ruta sigue disponible -->
+        <!-- <router-link to="/paquetes" class="sidebar-link" :class="{ active: $route.name === 'Paquetes' }">
           <Boxes :size="20" />
           <span>Paquetes</span>
-        </router-link>
+        </router-link> -->
       </div>
 
       <div class="sidebar-section">
@@ -43,7 +44,7 @@
           <span>Entrada</span>
           <span class="sidebar-badge badge-ent">ENT</span>
         </router-link>
-        <router-link to="/historial" class="sidebar-link" :class="{ active: $route.name === 'Historial' }">
+        <router-link to="/historial" class="sidebar-link" :class="{ active: $route.name === 'Historial' }" v-if="isAdmin">
           <ClipboardList :size="20" />
           <span>Historial</span>
         </router-link>
@@ -82,7 +83,7 @@
         </router-link>
       </div>
 
-      <div class="sidebar-section">
+      <div class="sidebar-section" v-if="isSuperAdmin">
         <span class="sidebar-section-label">Administración</span>
         <router-link to="/usuarios" class="sidebar-link" :class="{ active: $route.name === 'Usuarios' }">
           <Users :size="20" />
@@ -97,10 +98,10 @@
         <UserCircle :size="36" />
       </div>
       <div class="sidebar-user-info">
-        <span class="sidebar-user-name">Admin</span>
-        <span class="sidebar-user-role">SuperAdministrador</span>
+        <span class="sidebar-user-name">{{ userName }}</span>
+        <span class="sidebar-user-role">{{ userRole }}</span>
       </div>
-      <button class="sidebar-logout" title="Cerrar sesión" @click="$router.push('/login')">
+      <button class="sidebar-logout" title="Cerrar sesión" @click="handleLogout">
         <LogOut :size="18" />
       </button>
     </div>
@@ -109,15 +110,28 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   LayoutDashboard, Warehouse, Package, Boxes,
   ArrowUpFromLine, ArrowDownToLine, ClipboardList, PackageMinus,
   FolderTree, Tag, Ruler, Palette, Tags, RotateCcw,
   Users, UserCircle, LogOut
 } from 'lucide-vue-next'
+import { auth } from '@/auth'
 
 import logoSrc from '@/assets/logo.png'
 const logoUrl = computed(() => logoSrc)
+const router = useRouter()
+
+const userName = auth.userName
+const userRole = auth.userRole
+const isAdmin = auth.isAdmin
+const isSuperAdmin = auth.isSuperAdmin
+
+function handleLogout() {
+  auth.logout()
+  router.push('/login')
+}
 </script>
 
 <style scoped>

@@ -10,7 +10,10 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: Number(process.env.DB_PORT) || 3306,
+ proy_bd_funcional(local)
+
   timezone: 'Z',
+ main
   ...(process.env.DB_SSL === 'true' && { ssl: { rejectUnauthorized: false } }),
   waitForConnections: true,
   connectionLimit: 10,
@@ -26,5 +29,6 @@ async function testConnection() {
   await conn.ping();
   conn.release();
 }
-
 module.exports = { pool, testConnection };
+
+

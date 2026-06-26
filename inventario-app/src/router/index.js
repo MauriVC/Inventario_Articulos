@@ -1,11 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { auth } from '@/auth'
 
 const routes = [
   {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginView.vue'),
-    meta: { layout: 'none' }
+    meta: { layout: 'none', public: true }
   },
   {
     path: '/',
@@ -83,25 +84,52 @@ const routes = [
     path: '/devolucion',
     name: 'Devolucion',
     component: () => import('@/views/DevolucionView.vue'),
-    meta: { title: 'Adm. Devolución', icon: 'RotateCcw' }
+    meta: { title: 'Adm. Devolución', icon: 'RotateCcw', roles: ['SuperAdministrador', 'Administrador'] }
   },
   {
     path: '/usuarios',
     name: 'Usuarios',
     component: () => import('@/views/UsuariosView.vue'),
-    meta: { title: 'Usuarios', icon: 'Users' }
+    meta: { title: 'Usuarios', icon: 'Users', roles: ['SuperAdministrador'] }
   },
   {
     path: '/historial',
     name: 'Historial',
     component: () => import('@/views/HistorialView.vue'),
-    meta: { title: 'Historial', icon: 'ClipboardList' }
+    meta: { title: 'Historial', icon: 'ClipboardList', roles: ['SuperAdministrador', 'Administrador'] }
   }
 ]
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes
+})
+
+// ─── Navigation Guard ───
+router.beforeEach((to, from, next) => {
+  // Ruta pública (login): si ya está autenticado, ir al dashboard
+  if (to.meta.public) {
+    if (auth.isLoggedIn.value) {
+      return next('/')
+    }
+    return next()
+  }
+
+  // Ruta protegida: si no está autenticado, ir al login
+  if (!auth.isLoggedIn.value) {
+    return next('/login')
+  }
+
+  // Verificar roles si la ruta los requiere
+  if (to.meta.roles && to.meta.roles.length > 0) {
+    const userRole = auth.userRole.value
+    if (!to.meta.roles.includes(userRole)) {
+      // No tiene permiso → redirigir al dashboard
+      return next('/')
+    }
+  }
+
+  next()
 })
 
 export default router

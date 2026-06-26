@@ -4,10 +4,9 @@
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">
         <span class="mov-type-badge mov-salida"><ArrowUpFromLine :size="18" /> SALIDA</span>
-        <select class="form-select" style="width: 220px;">
-          <option>Almacén Central</option>
-          <option>Almacén Norte</option>
-          <option>Almacén Laboratorio</option>
+        <select v-model="selectedAlmacen" class="form-select" style="width: 220px;" @change="loadAlmacenData">
+          <option value="">Seleccione un almacén...</option>
+          <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
         </select>
       </div>
       <span class="text-muted text-sm">Código: <strong class="text-primary">SAL-2026-0013</strong> (Auto-generado)</span>
@@ -51,8 +50,8 @@
             <div class="datetime-display">
               <Calendar :size="20" />
               <div>
-                <span class="datetime-date">27 de Mayo, 2026</span>
-                <span class="datetime-time">23:21:00</span>
+                <span class="datetime-date">{{ currentDate }}</span>
+                <span class="datetime-time">{{ currentTime }}</span>
               </div>
             </div>
           </div>
@@ -193,17 +192,24 @@
     <!-- Footer Actions -->
     <div class="form-actions mt-6">
       <router-link to="/" class="btn btn-secondary">Cancelar</router-link>
-      <button class="btn btn-danger btn-lg" :disabled="items.length === 0">
+      <button class="btn btn-danger btn-lg" :disabled="items.length === 0 || !selectedAlmacen || saving" @click="registrarSalida">
         <ArrowUpFromLine :size="18" />
-        Registrar Salida
+        {{ saving ? 'Registrando...' : 'Registrar Salida' }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Search, Calendar, ArrowUpFromLine, Package, X, Boxes, RotateCcw } from 'lucide-vue-next'
+import { api } from '@/api'
+
+const router = useRouter()
+
+const almacenes = ref([])
+const selectedAlmacen = ref('')
 
 const solicitante = ref({ carnet: '', nombre: '', telefono: '' })
 const solicitanteEncontrado = ref(false)
@@ -213,49 +219,76 @@ const articuloSearch = ref('')
 const mode = ref('articulos')
 const selectedPaqueteId = ref('')
 const paqueteAplicado = ref(null)
+const saving = ref(false)
 
-const items = ref([
-  { nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Azul', hex: '#007bff', stockDisponible: 200, cantidad: 10, requiereDevolucion: false },
-  { nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Rojo', hex: '#dc3545', stockDisponible: 150, cantidad: 5, requiereDevolucion: false },
-  { nombre: 'Folder Oficio', colorNombre: 'Azul', hex: '#007bff', stockDisponible: 50, cantidad: 20, requiereDevolucion: false }
-])
+const items = ref([])
+const allArticulos = ref([])
+const paquetesDisponibles = ref([])
 
-const allArticulos = ref([
-  { id: 1, nombre: 'Pintura Latex 1L', colorNombre: 'Blanco', hex: '#ffffff', stock: 50, requiereDevolucion: false },
-  { id: 2, nombre: 'Fierro Corrugado 3/8', colorNombre: 'S/N', hex: '#e9ecef', stock: 500, requiereDevolucion: false },
-  { id: 3, nombre: 'Resma Papel Bond Carta', colorNombre: 'S/N', hex: '#e9ecef', stock: 120, requiereDevolucion: false },
-  { id: 4, nombre: 'Martillo Carpintero', colorNombre: 'Mango Rojo', hex: '#dc3545', stock: 15, requiereDevolucion: true },
-  { id: 5, nombre: 'Destornillador Phillips', colorNombre: 'S/N', hex: '#e9ecef', stock: 40, requiereDevolucion: true },
-  { id: 6, nombre: 'Cinta Métrica 5m', colorNombre: 'S/N', hex: '#e9ecef', stock: 25, requiereDevolucion: true },
-  { id: 7, nombre: 'Casco de Seguridad', colorNombre: 'S/N', hex: '#e9ecef', stock: 50, requiereDevolucion: true },
-  { id: 8, nombre: 'Lápiz HB', colorNombre: 'S/N', hex: '#e9ecef', stock: 500, requiereDevolucion: false }
-])
+// Current date/time display
+const currentDate = ref('')
+const currentTime = ref('')
+let timer
 
-const paquetesDisponibles = ref([
-  {
-    id: 1, nombre: 'Paquete Cuadernos', categoria: 'Cuadernos',
-    items: [
-      { nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Azul', hex: '#007bff', stockDisponible: 200, cantidad: 10, requiereDevolucion: false },
-      { nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Rojo', hex: '#dc3545', stockDisponible: 150, cantidad: 10, requiereDevolucion: false }
-    ]
-  },
-  {
-    id: 2, nombre: 'Paquete Carpintería', categoria: 'Mixta',
-    items: [
-      { nombre: 'Martillo Carpintero', colorNombre: 'Mango Rojo', hex: '#dc3545', stockDisponible: 15, cantidad: 1, requiereDevolucion: true },
-      { nombre: 'Clavos 2 pulgadas', colorNombre: 'S/N', hex: '#e9ecef', stockDisponible: 300, cantidad: 50, requiereDevolucion: false },
-      { nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Azul', hex: '#007bff', stockDisponible: 200, cantidad: 1, requiereDevolucion: false },
-      { nombre: 'Lápiz HB', colorNombre: 'S/N', hex: '#e9ecef', stockDisponible: 500, cantidad: 1, requiereDevolucion: false },
-      { nombre: 'Cinta Métrica 5m', colorNombre: 'S/N', hex: '#e9ecef', stockDisponible: 25, cantidad: 1, requiereDevolucion: true }
-    ]
-  },
-  {
-    id: 3, nombre: 'Paquete EPP Básico', categoria: 'EPP',
-    items: [
-      { nombre: 'Casco de Seguridad', colorNombre: 'S/N', hex: '#e9ecef', stockDisponible: 50, cantidad: 1, requiereDevolucion: true }
-    ]
+onMounted(async () => {
+  updateTime()
+  timer = setInterval(updateTime, 1000)
+
+  try {
+    const resAlm = await api.getAlmacenes()
+    almacenes.value = resAlm.data.filter(a => a.estado === 'Activo')
+    if (almacenes.value.length > 0) {
+      selectedAlmacen.value = almacenes.value[0].id
+      await loadAlmacenData()
+    }
+  } catch (error) {
+    console.error("Error cargando almacenes:", error)
   }
-])
+})
+
+onUnmounted(() => {
+  clearInterval(timer)
+})
+
+function updateTime() {
+  const now = new Date()
+  currentDate.value = now.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+  currentTime.value = now.toLocaleTimeString('es-ES')
+}
+
+async function loadAlmacenData() {
+  if (!selectedAlmacen.value) {
+    allArticulos.value = []
+    paquetesDisponibles.value = []
+    items.value = []
+    return
+  }
+
+  try {
+    const resArt = await api.getArticulos({ almacen_id: selectedAlmacen.value })
+    const flatVariantes = []
+    for (const art of resArt.data) {
+      if (art.estado !== 'Activo') continue
+      for (const v of art.variantes) {
+        if (v.estado !== 'Activo') continue
+        flatVariantes.push({
+          articulo_item_id: v.id,
+          nombre: art.nombre,
+          colorNombre: v.color_nombre,
+          hex: v.codigo_hex,
+          stock: v.stock,
+          requiereDevolucion: art.requiere_devolucion === 1
+        })
+      }
+    }
+    allArticulos.value = flatVariantes
+
+    const resPaq = await api.getPaquetes({ almacen_id: selectedAlmacen.value })
+    paquetesDisponibles.value = resPaq.data.filter(p => p.estado === 'Activo')
+  } catch (error) {
+    console.error("Error cargando artículos o paquetes:", error)
+  }
+}
 
 const searchResults = computed(() => {
   if (!articuloSearch.value) return []
@@ -275,10 +308,18 @@ function buscarSolicitante() {
 }
 
 function addArticulo(a) {
-  items.value.push({
-    nombre: a.nombre, colorNombre: a.colorNombre, hex: a.hex,
-    stockDisponible: a.stock, cantidad: 1, requiereDevolucion: a.requiereDevolucion || false
-  })
+  const existing = items.value.find(i => i.articulo_item_id === a.articulo_item_id)
+  if (existing) {
+    if (existing.cantidad < a.stock) {
+      existing.cantidad++
+    }
+  } else {
+    items.value.push({
+      articulo_item_id: a.articulo_item_id,
+      nombre: a.nombre, colorNombre: a.colorNombre, hex: a.hex,
+      stockDisponible: a.stock, cantidad: 1, requiereDevolucion: a.requiereDevolucion || false
+    })
+  }
   articuloSearch.value = ''
 }
 
@@ -286,13 +327,58 @@ function aplicarPaquete() {
   const paq = paquetesDisponibles.value.find(p => p.id === Number(selectedPaqueteId.value))
   if (!paq) return
   paqueteAplicado.value = paq
-  items.value = paq.items.map(item => ({ ...item }))
+  
+  items.value = paq.items.map(item => ({
+    articulo_item_id: item.articulo_item_id,
+    nombre: item.articulo_nombre,
+    colorNombre: item.color_nombre,
+    hex: item.codigo_hex,
+    stockDisponible: item.stock,
+    cantidad: Math.min(item.cantidad, item.stock),
+    requiereDevolucion: item.requiere_devolucion === 1
+  }))
 }
 
 function limpiarPaquete() {
   paqueteAplicado.value = null
   selectedPaqueteId.value = ''
   items.value = []
+}
+
+async function registrarSalida() {
+  if (items.value.length === 0 || !selectedAlmacen.value) return
+  if (!solicitante.value.carnet || !solicitante.value.nombre || !destino.value) {
+    alert("Por favor, complete los campos obligatorios del solicitante y destino.")
+    return
+  }
+
+  saving.value = true
+  try {
+    const payload = {
+      tipo: 'SALIDA',
+      almacen_id: Number(selectedAlmacen.value),
+      paquete_id: paqueteAplicado.value ? paqueteAplicado.value.id : null,
+      solicitante_ci: solicitante.value.carnet,
+      solicitante_nombre: solicitante.value.nombre,
+      solicitante_telefono: solicitante.value.telefono,
+      destino_procedencia: destino.value,
+      observacion: observacion.value,
+      detalles: items.value.map(i => ({
+        articulo_item_id: i.articulo_item_id,
+        cantidad: i.cantidad
+      }))
+    }
+
+    await api.createMovimiento(payload)
+    
+    // Redirect to historial or success page
+    alert("Salida registrada exitosamente")
+    router.push('/historial')
+  } catch (error) {
+    alert("Error al registrar la salida: " + error.message)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 

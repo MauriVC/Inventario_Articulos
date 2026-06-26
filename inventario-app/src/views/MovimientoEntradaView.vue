@@ -4,13 +4,12 @@
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">
         <span class="mov-type-badge mov-entrada"><ArrowDownToLine :size="18" /> ENTRADA</span>
-        <select class="form-select" style="width: 220px;">
-          <option>Almacén Central</option>
-          <option>Almacén Norte</option>
-          <option>Almacén Laboratorio</option>
+        <select v-model="selectedAlmacen" class="form-select" style="width: 220px;" @change="loadAlmacenData">
+          <option value="">Seleccione un almacén...</option>
+          <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
         </select>
       </div>
-      <span class="text-muted text-sm">Código: <strong style="color: var(--color-success);">ENT-2026-0009</strong> (Auto-generado)</span>
+      <span class="text-muted text-sm">Código: <strong style="color: var(--color-success);">Auto-generado</strong></span>
     </div>
 
     <div class="mov-form-grid">
@@ -50,8 +49,8 @@
             <div class="datetime-display entrada">
               <Calendar :size="20" />
               <div>
-                <span class="datetime-date">26 de Mayo, 2026</span>
-                <span class="datetime-time">23:55:00</span>
+                <span class="datetime-date">{{ currentDate }}</span>
+                <span class="datetime-time">{{ currentTime }}</span>
               </div>
             </div>
           </div>
@@ -79,11 +78,10 @@
           </div>
         </div>
 
-        <div class="search-results" v-if="articuloSearch.length > 0">
-          <div class="search-result-item" v-for="a in searchResults" :key="a.id" @click="addArticulo(a)">
+        <div class="search-results" v-if="articuloSearch.length > 0 && searchResults.length > 0">
+          <div class="search-result-item" v-for="a in searchResults" :key="a.articulo_item_id" @click="addArticulo(a)">
             <div class="flex items-center gap-2">
               <span class="font-medium">{{ a.nombre }}</span>
-              <span class="badge badge-warning" v-if="a.esPaquete" style="font-size: 10px;">📦 PAQUETE</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="color-dot" :style="{ background: a.hex, width: '12px', height: '12px' }"></span>
@@ -105,50 +103,33 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="(item, i) in items" :key="i">
-                <tr :class="{ 'paquete-row': item.esPaquete }">
-                  <td>
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium">{{ item.nombre }}</span>
-                      <span class="badge badge-warning" v-if="item.esPaquete" style="font-size: 10px;">📦 PAQUETE</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="flex items-center gap-2">
-                      <span class="color-dot" :style="{ background: item.hex, width: '14px', height: '14px' }"></span>
-                      {{ item.colorNombre }}
-                    </div>
-                  </td>
-                  <td class="text-center">
-                    <span class="badge badge-info">{{ item.stockActual }}</span>
-                  </td>
-                  <td style="width: 140px;">
-                    <input v-model.number="item.cantidad" type="number" min="1" class="form-input" style="width: 100px; text-align: center;" />
-                  </td>
-                  <td style="width: 200px;">
-                    <input v-model="item.observacion" type="text" class="form-input" placeholder="Ej: Buen estado" style="font-size: 13px;" />
-                  </td>
-                  <td>
-                    <button class="btn btn-ghost btn-icon" @click="items.splice(i, 1)">
-                      <X :size="16" style="color: var(--color-danger);" />
-                    </button>
-                  </td>
-                </tr>
-                <!-- Package components -->
-                <tr v-if="item.esPaquete && item.componentes" class="componentes-row">
-                  <td colspan="6">
-                    <div class="componentes-detail">
-                      <span class="componentes-label">Se ingresarán a stock los siguientes componentes:</span>
-                      <div class="componentes-list">
-                        <span class="componente-chip" v-for="c in item.componentes" :key="c.nombre">
-                          <span class="color-dot" :style="{ background: c.hex, width: '10px', height: '10px' }"></span>
-                          {{ c.nombre }} ({{ c.color }}) ×{{ c.cantPorPaquete * item.cantidad }}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              </template>
+              <tr v-for="(item, i) in items" :key="i">
+                <td>
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium">{{ item.nombre }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <span class="color-dot" :style="{ background: item.hex, width: '14px', height: '14px' }"></span>
+                    {{ item.colorNombre }}
+                  </div>
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-info">{{ item.stockActual }}</span>
+                </td>
+                <td style="width: 140px;">
+                  <input v-model.number="item.cantidad" type="number" min="1" class="form-input" style="width: 100px; text-align: center;" />
+                </td>
+                <td style="width: 200px;">
+                  <input v-model="item.observacion" type="text" class="form-input" placeholder="Ej: Buen estado" style="font-size: 13px;" />
+                </td>
+                <td>
+                  <button class="btn btn-ghost btn-icon" @click="items.splice(i, 1)">
+                    <X :size="16" style="color: var(--color-danger);" />
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -163,34 +144,93 @@
     <!-- Footer Actions -->
     <div class="form-actions mt-6">
       <router-link to="/" class="btn btn-secondary">Cancelar</router-link>
-      <button class="btn btn-success btn-lg" :disabled="items.length === 0">
+      <button class="btn btn-success btn-lg" :disabled="items.length === 0 || !selectedAlmacen || saving" @click="registrarEntrada">
         <ArrowDownToLine :size="18" />
-        Registrar Entrada
+        {{ saving ? 'Registrando...' : 'Registrar Entrada' }}
       </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Search, Calendar, ArrowDownToLine, Package, X } from 'lucide-vue-next'
+import { api } from '@/api'
+
+const router = useRouter()
+
+const almacenes = ref([])
+const selectedAlmacen = ref('')
 
 const solicitante = ref({ carnet: '', nombre: '', telefono: '' })
 const procedencia = ref('')
 const observacion = ref('')
 const articuloSearch = ref('')
+const saving = ref(false)
 
-const items = ref([
-  { nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Azul', hex: '#007bff', stockActual: 190, cantidad: 8, observacion: 'Buen estado' },
-  { nombre: 'Folder Oficio', colorNombre: 'Azul', hex: '#007bff', stockActual: 30, cantidad: 15, observacion: '2 dañados' }
-])
+const items = ref([])
+const allArticulos = ref([])
 
-const allArticulos = ref([
-  { id: 1, nombre: 'Cuaderno 100h Tapa Dura', colorNombre: 'Rojo', hex: '#dc3545', stock: 145, esPaquete: false },
-  { id: 2, nombre: 'Pintura Latex 1L', colorNombre: 'Blanco', hex: '#ffffff', stock: 48, esPaquete: false },
-  { id: 3, nombre: 'Martillo Carpintero', colorNombre: 'Mango Negro', hex: '#343a40', stock: 20, esPaquete: false },
-  { id: 4, nombre: 'Paquete Escolar Básico', colorNombre: 'S/N', hex: '#e9ecef', stock: 25, esPaquete: true }
-])
+// Current date/time display
+const currentDate = ref('')
+const currentTime = ref('')
+let timer
+
+onMounted(async () => {
+  updateTime()
+  timer = setInterval(updateTime, 1000)
+
+  try {
+    const resAlm = await api.getAlmacenes()
+    almacenes.value = resAlm.data.filter(a => a.estado === 'Activo')
+    if (almacenes.value.length > 0) {
+      selectedAlmacen.value = almacenes.value[0].id
+      await loadAlmacenData()
+    }
+  } catch (error) {
+    console.error("Error cargando almacenes:", error)
+  }
+})
+
+onUnmounted(() => {
+  clearInterval(timer)
+})
+
+function updateTime() {
+  const now = new Date()
+  currentDate.value = now.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+  currentTime.value = now.toLocaleTimeString('es-ES')
+}
+
+async function loadAlmacenData() {
+  if (!selectedAlmacen.value) {
+    allArticulos.value = []
+    items.value = []
+    return
+  }
+
+  try {
+    const resArt = await api.getArticulos({ almacen_id: selectedAlmacen.value })
+    const flatVariantes = []
+    for (const art of resArt.data) {
+      if (art.estado !== 'Activo') continue
+      for (const v of art.variantes) {
+        if (v.estado !== 'Activo') continue
+        flatVariantes.push({
+          articulo_item_id: v.id,
+          nombre: art.nombre,
+          colorNombre: v.color_nombre,
+          hex: v.codigo_hex,
+          stock: v.stock
+        })
+      }
+    }
+    allArticulos.value = flatVariantes
+  } catch (error) {
+    console.error("Error cargando artículos:", error)
+  }
+}
 
 const searchResults = computed(() => {
   if (!articuloSearch.value) return []
@@ -198,16 +238,55 @@ const searchResults = computed(() => {
 })
 
 function addArticulo(a) {
-  const item = { nombre: a.nombre, colorNombre: a.colorNombre, hex: a.hex, stockActual: a.stock, cantidad: 1, observacion: '', esPaquete: a.esPaquete || false, componentes: null }
-  if (a.esPaquete) {
-    item.componentes = [
-      { nombre: 'Cuaderno 100h', color: 'Azul', hex: '#007bff', cantPorPaquete: 5 },
-      { nombre: 'Folder Oficio', color: 'Rojo', hex: '#dc3545', cantPorPaquete: 3 },
-      { nombre: 'Lápiz HB', color: 'S/N', hex: '#e9ecef', cantPorPaquete: 2 }
-    ]
+  const existing = items.value.find(i => i.articulo_item_id === a.articulo_item_id)
+  if (existing) {
+    existing.cantidad++
+  } else {
+    items.value.push({
+      articulo_item_id: a.articulo_item_id,
+      nombre: a.nombre,
+      colorNombre: a.colorNombre,
+      hex: a.hex,
+      stockActual: a.stock,
+      cantidad: 1,
+      observacion: ''
+    })
   }
-  items.value.push(item)
   articuloSearch.value = ''
+}
+
+async function registrarEntrada() {
+  if (items.value.length === 0 || !selectedAlmacen.value) return
+  if (!solicitante.value.carnet || !solicitante.value.nombre || !procedencia.value) {
+    alert("Por favor, complete los campos obligatorios del solicitante y procedencia.")
+    return
+  }
+
+  saving.value = true
+  try {
+    const payload = {
+      tipo: 'ENTRADA',
+      almacen_id: Number(selectedAlmacen.value),
+      solicitante_ci: solicitante.value.carnet,
+      solicitante_nombre: solicitante.value.nombre,
+      solicitante_telefono: solicitante.value.telefono,
+      destino_procedencia: procedencia.value,
+      observacion: observacion.value,
+      detalles: items.value.map(i => ({
+        articulo_item_id: i.articulo_item_id,
+        cantidad: i.cantidad,
+        observacion: i.observacion
+      }))
+    }
+
+    await api.createMovimiento(payload)
+    alert("Entrada registrada exitosamente")
+    router.push('/historial')
+  } catch (error) {
+    alert("Error al registrar la entrada: " + error.message)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -245,16 +324,4 @@ function addArticulo(a) {
 .form-actions { display: flex; justify-content: flex-end; gap: var(--space-3); padding: var(--space-4) 0; }
 .empty-state { padding: var(--space-8); }
 .empty-state svg { width: 48px; height: 48px; }
-
-/* Package support */
-.paquete-row { background: rgba(56, 161, 105, 0.04); }
-.componentes-row td { padding: 0 !important; background: rgba(56, 161, 105, 0.06); }
-.componentes-detail { padding: var(--space-2) var(--space-6); }
-.componentes-label { font-size: var(--font-size-xs); color: #276749; font-weight: 500; margin-right: var(--space-2); }
-.componentes-list { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); }
-.componente-chip {
-  display: inline-flex; align-items: center; gap: var(--space-1);
-  padding: 1px 8px; background: var(--color-white); border: 1px solid var(--color-success-light);
-  border-radius: var(--radius-full); font-size: 11px;
-}
 </style>
