@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const fastify = require('fastify')({ logger: true });
 const { testConnection } = require('./src/config/database');

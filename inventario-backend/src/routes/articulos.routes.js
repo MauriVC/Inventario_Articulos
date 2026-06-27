@@ -8,9 +8,17 @@ async function articulosRoutes(fastify) {
   // GET /api/articulos — Listar artículos con sus variantes y atributos
   fastify.get('/', async (request) => {
     const { almacen_id, categoria_id, estado } = request.query;
+    const userId = request.headers['x-user-id'];
+    const userRole = request.headers['x-user-role'];
 
     let where = '1=1';
     const params = [];
+
+    if (userId && userRole !== 'SuperAdministrador') {
+      where += ' AND a.almacen_id IN (SELECT almacen_id FROM usuario_almacen WHERE usuario_id = ?)';
+      params.push(userId);
+    }
+
     if (almacen_id) { where += ' AND a.almacen_id = ?'; params.push(almacen_id); }
     if (categoria_id) { where += ' AND a.categoria_id = ?'; params.push(categoria_id); }
     if (estado) { where += ' AND a.estado = ?'; params.push(estado); }

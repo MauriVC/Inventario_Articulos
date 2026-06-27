@@ -7,14 +7,32 @@ async function almacenesRoutes(fastify) {
 
   // GET /api/almacenes — Listar todos (con conteo de artículos)
   fastify.get('/', async (request, reply) => {
-    const [rows] = await pool.query(`
+    const userId = request.headers['x-user-id'];
+    const userRole = request.headers['x-user-role'];
+
+    let query = `
       SELECT a.id, a.nombre, a.ubicacion, a.descripcion, a.estado, a.created_at,
              COUNT(art.id) AS totalArticulos
       FROM almacenes a
       LEFT JOIN articulos art ON art.almacen_id = a.id
+    `;
+    const params = [];
+
+    // Filtrar si no es SuperAdministrador
+    if (userId && userRole !== 'SuperAdministrador') {
+      query += `
+        INNER JOIN usuario_almacen ua ON ua.almacen_id = a.id
+        WHERE ua.usuario_id = ?
+      `;
+      params.push(userId);
+    }
+
+    query += `
       GROUP BY a.id
       ORDER BY a.nombre
-    `);
+    `;
+
+    const [rows] = await pool.query(query, params);
     return { data: rows };
   });
 

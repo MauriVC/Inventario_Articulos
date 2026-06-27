@@ -2,11 +2,16 @@
  * API Helper — Centraliza todas las peticiones al backend
  */
 const API_BASE = 'http://localhost:3000/api';
+import { auth } from './auth';
 
-async function apiFetch(endpoint, options = {}) {
+async function apiFetch(endpoint, options = {}, retries = 3, delay = 1000) {
   const url = `${API_BASE}${endpoint}`;
   const config = {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'X-User-Id': auth.userId.value || '',
+      'X-User-Role': auth.userRole.value || ''
+    },
     ...options
   };
 
@@ -14,14 +19,24 @@ async function apiFetch(endpoint, options = {}) {
     config.body = JSON.stringify(config.body);
   }
 
-  const res = await fetch(url, config);
-  const json = await res.json();
+  try {
+    const res = await fetch(url, config);
+    const json = await res.json();
 
-  if (!res.ok) {
-    throw new Error(json.error || `Error ${res.status}`);
+    if (!res.ok) {
+      throw new Error(json.error || `Error ${res.status}`);
+    }
+
+    return json;
+  } catch (error) {
+    // Si es un error de conexión (el servidor backend local se está reiniciando)
+    if (retries > 0 && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+      console.warn(`[API] Servidor ocupado o reiniciando, reintentando en ${delay}ms... (Quedan ${retries} intentos)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return apiFetch(endpoint, options, retries - 1, delay * 1.5);
+    }
+    throw error;
   }
-
-  return json;
 }
 
 export const api = {

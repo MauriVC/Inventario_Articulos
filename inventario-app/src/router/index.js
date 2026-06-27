@@ -84,7 +84,7 @@ const routes = [
     path: '/devolucion',
     name: 'Devolucion',
     component: () => import('@/views/DevolucionView.vue'),
-    meta: { title: 'Adm. Devolución', icon: 'RotateCcw', roles: ['SuperAdministrador', 'Administrador'] }
+    meta: { title: 'Adm. Devolución', icon: 'RotateCcw' }
   },
   {
     path: '/usuarios',

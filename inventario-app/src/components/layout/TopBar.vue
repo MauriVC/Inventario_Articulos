@@ -9,6 +9,13 @@
       </div>
     </div>
     <div class="topbar-right">
+      <!-- Indicador de Red -->
+      <div class="network-badge" :class="isOnline ? 'online' : 'offline'" v-if="isElectron">
+        <Wifi v-if="isOnline" :size="14" />
+        <WifiOff v-else :size="14" />
+        <span>{{ isOnline ? 'Nube (Online)' : 'Local (Offline)' }}</span>
+      </div>
+
       <div class="topbar-search">
         <Search :size="16" />
         <input 
@@ -39,13 +46,26 @@
 </template>
 
 <script setup>
-import { Search, ChevronRight } from 'lucide-vue-next'
-import { ref, computed } from 'vue'
+import { Search, ChevronRight, Wifi, WifiOff } from 'lucide-vue-next'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
+
+const isOnline = ref(true)
+const isElectron = ref(false)
+
+onMounted(async () => {
+  if (window.electronAPI) {
+    isElectron.value = true;
+    isOnline.value = await window.electronAPI.getNetworkStatus();
+    window.electronAPI.onNetworkStatus((status) => {
+      isOnline.value = status;
+    });
+  }
+})
 
 const searchablePages = [
   { name: 'Dashboard', path: '/dashboard' },
@@ -117,7 +137,25 @@ function handleBlur() {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
+}
+.network-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+.network-badge.online {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+.network-badge.offline {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
 }
 .topbar-search {
   position: relative;
