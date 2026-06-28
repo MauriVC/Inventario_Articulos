@@ -9,13 +9,45 @@ function initLocalDb(userDataPath) {
   console.log('[SQLite] Ruta de base de datos local:', dbPath);
 
   // Inicializar base de datos
-  db = new Database(dbPath, { verbose: console.log });
-  db.pragma('journal_mode = WAL'); // Mejor rendimiento y concurrencia
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+
+  // Migración: Verificar si el esquema tiene CASCADE (v2)
+  // Si no, recrear todas las tablas desde cero
+  migrateSchemaIfNeeded();
+
+  db.pragma('foreign_keys = ON');
 
   // Crear esquema si no existe
   createSchema();
 
   return db;
+}
+
+function migrateSchemaIfNeeded() {
+  try {
+    // Verificar si la tabla 'articulos' existe y tiene la FK con ON DELETE CASCADE
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='articulos'").get();
+    if (tableInfo && !tableInfo.sql.includes('ON DELETE CASCADE')) {
+      console.log('[SQLite] Migrando esquema a v2 (con ON DELETE CASCADE)...');
+      db.pragma('foreign_keys = OFF');
+      
+      const tables = [
+        'sync_queue', 'usuario_almacen', 'paquete_contenido', 'paquetes',
+        'movimiento_detalles', 'movimientos', 'articulo_datos', 'articulo_items',
+        'articulos', 'datos', 'atributos', 'colores', 'unidad_medidas',
+        'marcas', 'categorias', 'usuarios', 'almacenes'
+      ];
+      for (const t of tables) {
+        db.prepare(`DROP TABLE IF EXISTS ${t}`).run();
+      }
+      
+      db.pragma('foreign_keys = ON');
+      console.log('[SQLite] Tablas eliminadas. Se recrearán con CASCADE.');
+    }
+  } catch (e) {
+    // Si la tabla no existe, createSchema() la creará
+  }
 }
 
 function getDb() {
@@ -56,7 +88,7 @@ function createSchema() {
       estado TEXT DEFAULT 'Activo',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (padre_id) REFERENCES categorias(id)
+      FOREIGN KEY (padre_id) REFERENCES categorias(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS marcas (
@@ -99,7 +131,7 @@ function createSchema() {
       nombre TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (atributo_id) REFERENCES atributos(id)
+      FOREIGN KEY (atributo_id) REFERENCES atributos(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS articulos (
@@ -117,10 +149,10 @@ function createSchema() {
       updated_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (almacen_id) REFERENCES almacenes(id),
-      FOREIGN KEY (categoria_id) REFERENCES categorias(id),
-      FOREIGN KEY (marca_id) REFERENCES marcas(id),
-      FOREIGN KEY (unidad_medida_id) REFERENCES unidad_medidas(id)
+      FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE,
+      FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE,
+      FOREIGN KEY (marca_id) REFERENCES marcas(id) ON DELETE SET NULL,
+      FOREIGN KEY (unidad_medida_id) REFERENCES unidad_medidas(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS articulo_items (
@@ -131,8 +163,8 @@ function createSchema() {
       estado TEXT DEFAULT 'Activo',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (articulo_id) REFERENCES articulos(id),
-      FOREIGN KEY (color_id) REFERENCES colores(id)
+      FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE,
+      FOREIGN KEY (color_id) REFERENCES colores(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS articulo_datos (
@@ -140,8 +172,8 @@ function createSchema() {
       articulo_id INTEGER NOT NULL,
       dato_id INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (articulo_id) REFERENCES articulos(id),
-      FOREIGN KEY (dato_id) REFERENCES datos(id)
+      FOREIGN KEY (articulo_id) REFERENCES articulos(id) ON DELETE CASCADE,
+      FOREIGN KEY (dato_id) REFERENCES datos(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS movimientos (
@@ -161,9 +193,9 @@ function createSchema() {
       fecha_movimiento DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (almacen_id) REFERENCES almacenes(id),
-      FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-      FOREIGN KEY (paquete_id) REFERENCES paquetes(id)
+      FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE,
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+      FOREIGN KEY (paquete_id) REFERENCES paquetes(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS movimiento_detalles (
@@ -175,8 +207,8 @@ function createSchema() {
       stock_posterior INTEGER NOT NULL,
       observacion TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (movimiento_id) REFERENCES movimientos(id),
-      FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id)
+      FOREIGN KEY (movimiento_id) REFERENCES movimientos(id) ON DELETE CASCADE,
+      FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS paquetes (
@@ -198,8 +230,8 @@ function createSchema() {
       articulo_item_id INTEGER NOT NULL,
       cantidad INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (paquete_id) REFERENCES paquetes(id),
-      FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id)
+      FOREIGN KEY (paquete_id) REFERENCES paquetes(id) ON DELETE CASCADE,
+      FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS usuario_almacen (
@@ -207,8 +239,8 @@ function createSchema() {
       usuario_id INTEGER NOT NULL,
       almacen_id INTEGER NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-      FOREIGN KEY (almacen_id) REFERENCES almacenes(id)
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+      FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE
     );
 
     -- Tabla especial para manejar la sincronización

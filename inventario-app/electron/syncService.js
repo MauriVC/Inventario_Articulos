@@ -34,7 +34,9 @@ async function runSync(envConfig) {
     const pool = await initCloudPool(envConfig);
     conn = await pool.getConnection();
     
-    // 1. SUBIDA: Procesar operaciones locales pendientes (sync_queue)
+    // ═══════════════════════════════════════════════════
+    // 1. SUBIDA: Procesar operaciones locales pendientes
+    // ═══════════════════════════════════════════════════
     const pendingOps = sqliteDb.prepare(`SELECT * FROM sync_queue WHERE synced = 0 ORDER BY id ASC`).all();
     if (pendingOps.length > 0) {
       console.log(`[SyncService] Procesando ${pendingOps.length} operaciones pendientes para subir a la nube...`);
@@ -42,12 +44,9 @@ async function runSync(envConfig) {
         try {
           let { sql, params } = JSON.parse(op.payload);
           
-          // CRÍTICO: Si es un INSERT, MySQL ignorará el ID generado por SQLite (ej. 10000001) 
-          // porque el query original no incluye la columna "id".
-          // Debemos inyectar el "id" explícitamente para que MySQL respete el ID local 
-          // y las llaves foráneas (ej. articulo_items) no se rompan.
           if (op.operation === 'INSERT' && op.record_id) {
-            // Solo inyectar ID si es un INSERT sencillo, no un bulk insert
+            // Para INSERTs: convertir a INSERT ... ON DUPLICATE KEY UPDATE
+            // para que no falle si el registro ya existe en la nube
             const isBulkInsert = sql.toUpperCase().split('VALUES')[1]?.includes('),');
             
             if (!isBulkInsert) {
@@ -56,28 +55,35 @@ async function runSync(envConfig) {
                 const table = insertMatch[1];
                 const columns = insertMatch[2];
                 const placeholders = insertMatch[3];
+                const colList = columns.split(',').map(c => c.trim());
                 
-                sql = `INSERT INTO ${table} (id, ${columns}) VALUES (?, ${placeholders})`;
-                params.unshift(op.record_id); // Colocar el ID al inicio de los parámetros
+                // Inyectar ID local + ON DUPLICATE KEY UPDATE
+                const updateCols = colList.map(c => `${c} = VALUES(${c})`).join(', ');
+                sql = `INSERT INTO ${table} (id, ${columns}) VALUES (?, ${placeholders}) ON DUPLICATE KEY UPDATE ${updateCols}`;
+                params.unshift(op.record_id);
               }
             }
+          } else if (op.operation === 'UPDATE') {
+            // Para UPDATEs: simplemente ejecutar (si falla porque el registro no existe, registrar y continuar)
+          } else if (op.operation === 'DELETE') {
+            // Para DELETEs: ejecutar directamente, si el registro ya no existe ignorar
           }
           
           await conn.query(sql, params);
           sqliteDb.prepare(`UPDATE sync_queue SET synced = 1 WHERE id = ?`).run(op.id);
           console.log(`[SyncService] Subida exitosa - Operación #${op.id} (${op.operation} en ${op.table_name})`);
         } catch (opErr) {
-          console.error(`[SyncService] Error subiendo operación #${op.id}:`, opErr);
-          // Opcional: Podríamos detener la sincronización si falla una operación para mantener la consistencia
+          // Marcar como sincronizado de todos modos para evitar bucles infinitos
+          // El paso de BAJADA traerá los datos correctos de la nube
+          console.error(`[SyncService] Error subiendo operación #${op.id} (${op.operation} en ${op.table_name}):`, opErr.message);
+          sqliteDb.prepare(`UPDATE sync_queue SET synced = 1 WHERE id = ?`).run(op.id);
         }
       }
     }
 
-    // 2. BAJADA: Traer datos de Aiven a SQLite local
-    // Hacemos una copia espejo desde la nube a la base local
-    // Para simplificar: vaciamos y llenamos (solo para DBs pequeñas)
-    
-    // Desactivar foreign keys temporalmente para vaciar
+    // ═══════════════════════════════════════════════════
+    // 2. BAJADA: Traer datos de la nube a SQLite local
+    // ═══════════════════════════════════════════════════
     sqliteDb.pragma('foreign_keys = OFF');
 
     for (const table of SYNC_TABLES) {
@@ -106,7 +112,11 @@ async function runSync(envConfig) {
     }
     
     sqliteDb.pragma('foreign_keys = ON');
-    console.log('[SyncService] Sincronización de bajada completada exitosamente.');
+    
+    // Limpiar toda la sync_queue después de una bajada exitosa
+    sqliteDb.prepare(`DELETE FROM sync_queue`).run();
+    
+    console.log('[SyncService] Sincronización completa (subida + bajada).');
 
   } catch (error) {
     console.error('[SyncService] Error en sincronización:', error);

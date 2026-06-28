@@ -37,7 +37,7 @@
         <!-- Left Column (Sub-grid for Pie Chart and Bar Chart) -->
         <div class="charts-left-col">
           <!-- Pie Chart (Doughnut) -->
-          <div class="card" style="height: 100%;">
+          <div class="card">
             <div class="card-header border-b-0 pb-0">
               <h3 class="font-bold text-gray-800">Distribución (Día)</h3>
             </div>
@@ -62,7 +62,7 @@
           </div>
 
           <!-- Activity Chart -->
-          <div class="card" style="height: 100%;">
+          <div class="card">
             <div class="card-header border-b-0 pb-0 flex items-center justify-between" style="flex-wrap: wrap; gap: 8px;">
               <h3 class="font-bold text-gray-800">Actividad del Día</h3>
             </div>
@@ -223,7 +223,11 @@ const loading = ref(true)
 const currentYear = new Date().getFullYear()
 const selectedYear = ref(currentYear)
 const selectedMonth = ref('all')
-const selectedDate = ref(new Date().toISOString().split('T')[0])
+
+// Obtener fecha actual en la zona horaria local (en lugar de UTC)
+const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+const localISODate = (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
+const selectedDate = ref(localISODate)
 
 const statsData = ref({
   total_articulos: 0,
@@ -423,6 +427,7 @@ const pieChartBackground = computed(() => {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-5);
+  align-items: start;
 }
 .dashboard-right-col {
   display: flex;

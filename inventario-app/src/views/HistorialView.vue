@@ -3,30 +3,24 @@
     <!-- Filters -->
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">
-        <input type="date" v-model="filters.desde" class="form-input" style="width: 160px;" />
+        <input type="date" v-model="filters.desde" class="form-input" style="width: 160px;" @change="loadMovimientos(1)" />
         <span class="text-muted text-sm">hasta</span>
-        <input type="date" v-model="filters.hasta" class="form-input" style="width: 160px;" />
-        <select v-model="filters.tipo" class="form-select" style="width: 140px;">
+        <input type="date" v-model="filters.hasta" class="form-input" style="width: 160px;" @change="loadMovimientos(1)" />
+        <select v-model="filters.tipo" class="form-select" style="width: 140px;" @change="loadMovimientos(1)">
           <option value="">Tipo: Todos</option>
           <option value="SALIDA">Salida</option>
           <option value="ENTRADA">Entrada</option>
           <option value="BAJA">Baja</option>
         </select>
-        <select v-model="filters.almacen" class="form-select" style="width: 180px;">
+        <select v-model="filters.almacen_id" class="form-select" style="width: 180px;" @change="loadMovimientos(1)">
           <option value="">Almacén: Todos</option>
-          <option>Almacén Central</option>
-          <option>Almacén Norte</option>
-          <option>Almacén Laboratorio</option>
+          <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
         </select>
         <div class="form-input-icon">
           <Search :size="16" />
-          <input v-model="filters.search" type="text" class="form-input" placeholder="Buscar código o solicitante..." style="width: 240px;" />
+          <input v-model="filters.search" type="text" class="form-input" placeholder="Buscar código o solicitante..." style="width: 240px;" @keyup.enter="loadMovimientos(1)" />
         </div>
       </div>
-      <button class="btn btn-outline">
-        <FileDown :size="16" />
-        Exportar PDF
-      </button>
     </div>
 
     <!-- Table -->
@@ -48,8 +42,8 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="m in filteredMovimientos" :key="m.codigo">
-                <td class="font-semibold" :style="{ color: m.tipo === 'SALIDA' ? 'var(--color-danger)' : 'var(--color-success)' }">{{ m.codigo }}</td>
+              <tr v-for="m in movimientos" :key="m.id">
+                <td class="font-semibold" :style="{ color: m.tipo === 'SALIDA' ? 'var(--color-danger)' : m.tipo === 'ENTRADA' ? 'var(--color-success)' : 'var(--color-warning)' }">{{ m.codigo }}</td>
                 <td>
                   <span class="badge" :class="tipoBadgeClass(m.tipo)">
                     <component :is="tipoIcon(m.tipo)" :size="12" />
@@ -70,19 +64,28 @@
                   </button>
                 </td>
               </tr>
+              <tr v-if="movimientos.length === 0">
+                <td colspan="9" class="text-center p-4 text-muted">No se encontraron movimientos con los filtros aplicados.</td>
+              </tr>
             </tbody>
           </table>
         </div>
-        <div class="pagination">
-          <span class="pagination-info">Mostrando 1-10 de 156 registros</span>
+        <!-- Paginación dinámica -->
+        <div class="pagination" v-if="totalRecords > 0">
+          <span class="pagination-info">
+            Mostrando {{ paginationStart }}-{{ paginationEnd }} de {{ totalRecords }} registros
+          </span>
           <div class="pagination-buttons">
-            <button class="pagination-btn">&laquo;</button>
-            <button class="pagination-btn active">1</button>
-            <button class="pagination-btn">2</button>
-            <button class="pagination-btn">3</button>
-            <button class="pagination-btn">...</button>
-            <button class="pagination-btn">16</button>
-            <button class="pagination-btn">&raquo;</button>
+            <button class="pagination-btn" :disabled="currentPage <= 1" @click="loadMovimientos(1)">&laquo;</button>
+            <button class="pagination-btn" :disabled="currentPage <= 1" @click="loadMovimientos(currentPage - 1)">&lsaquo;</button>
+            <button 
+              v-for="p in visiblePages" :key="p"
+              class="pagination-btn" 
+              :class="{ active: p === currentPage }"
+              @click="loadMovimientos(p)"
+            >{{ p }}</button>
+            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="loadMovimientos(currentPage + 1)">&rsaquo;</button>
+            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="loadMovimientos(totalPages)">&raquo;</button>
           </div>
         </div>
       </div>
@@ -94,7 +97,7 @@
         <div class="modal-header">
           <div class="flex items-center gap-3">
             <h2>Detalle del Movimiento</h2>
-            <span class="badge" :class="selectedMov.tipo === 'SALIDA' ? 'badge-danger' : 'badge-success'">{{ selectedMov.tipo }}</span>
+            <span class="badge" :class="selectedMov.tipo === 'SALIDA' ? 'badge-danger' : selectedMov.tipo === 'ENTRADA' ? 'badge-success' : 'badge-warning'">{{ selectedMov.tipo }}</span>
           </div>
           <button class="btn btn-ghost btn-icon" @click="selectedMov = null"><X :size="20" /></button>
         </div>
@@ -148,7 +151,6 @@
           </table>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline"><FileDown :size="16" /> Exportar</button>
           <button class="btn btn-secondary" @click="selectedMov = null">Cerrar</button>
         </div>
       </div>
@@ -158,7 +160,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Search, FileDown, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw } from 'lucide-vue-next'
+import { Search, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw } from 'lucide-vue-next'
 import { api } from '@/api'
 
 function tipoBadgeClass(tipo) {
@@ -173,18 +175,66 @@ function tipoIcon(tipo) {
 }
 
 const selectedMov = ref(null)
-const filters = ref({ desde: '', hasta: '', tipo: '', almacen: '', search: '' })
+const filters = ref({ desde: '', hasta: '', tipo: '', almacen_id: '', search: '' })
 
 const movimientos = ref([])
+const almacenes = ref([])
+const currentPage = ref(1)
+const totalRecords = ref(0)
+const pageSize = 20
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize)))
+const paginationStart = computed(() => ((currentPage.value - 1) * pageSize) + 1)
+const paginationEnd = computed(() => Math.min(currentPage.value * pageSize, totalRecords.value))
+
+const visiblePages = computed(() => {
+  const pages = []
+  const total = totalPages.value
+  const current = currentPage.value
+  
+  let start = Math.max(1, current - 2)
+  let end = Math.min(total, current + 2)
+  
+  // Asegurar al menos 5 botones si hay suficientes páginas
+  if (end - start < 4) {
+    if (start === 1) end = Math.min(total, start + 4)
+    else start = Math.max(1, end - 4)
+  }
+  
+  for (let i = start; i <= end; i++) pages.push(i)
+  return pages
+})
 
 onMounted(async () => {
+  // Cargar almacenes para el filtro
   try {
-    const res = await api.getMovimientos()
+    const almRes = await api.getAlmacenes()
+    almacenes.value = almRes.data
+  } catch (e) {
+    console.error('Error cargando almacenes:', e)
+  }
+  await loadMovimientos(1)
+})
+
+async function loadMovimientos(page = 1) {
+  currentPage.value = page
+  try {
+    const params = {}
+    if (filters.value.tipo) params.tipo = filters.value.tipo
+    if (filters.value.almacen_id) params.almacen_id = filters.value.almacen_id
+    if (filters.value.desde) params.desde = filters.value.desde
+    if (filters.value.hasta) params.hasta = filters.value.hasta
+    if (filters.value.search) params.search = filters.value.search
+    params.limit = pageSize
+    params.offset = (page - 1) * pageSize
+
+    const res = await api.getMovimientos(params)
     movimientos.value = res.data
+    totalRecords.value = res.total || res.data.length
   } catch (error) {
     console.error("Error cargando historial:", error)
   }
-})
+}
 
 async function openDetalle(id) {
   try {
@@ -195,17 +245,6 @@ async function openDetalle(id) {
     alert("No se pudo cargar el detalle del movimiento.")
   }
 }
-
-const filteredMovimientos = computed(() => {
-  return movimientos.value.filter(m => {
-    const matchTipo = !filters.value.tipo || m.tipo === filters.value.tipo
-    const matchAlmacen = !filters.value.almacen || m.almacen_nombre === filters.value.almacen
-    const matchSearch = !filters.value.search || 
-                        m.codigo.toLowerCase().includes(filters.value.search.toLowerCase()) || 
-                        (m.solicitante_nombre && m.solicitante_nombre.toLowerCase().includes(filters.value.search.toLowerCase()))
-    return matchTipo && matchAlmacen && matchSearch
-  })
-})
 </script>
 
 <style scoped>

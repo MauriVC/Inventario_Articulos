@@ -9,9 +9,18 @@ async function movimientosRoutes(fastify) {
   // GET /api/movimientos — Historial con filtros
   fastify.get('/', async (request) => {
     const { tipo, almacen_id, desde, hasta, search, limit, offset } = request.query;
+    const userId = request.headers['x-user-id'];
+    const userRole = request.headers['x-user-role'];
 
     let where = '1=1';
     const params = [];
+
+    // Filtrar por almacenes del usuario (si no es SuperAdministrador)
+    if (userId && userRole !== 'SuperAdministrador') {
+      where += ' AND m.almacen_id IN (SELECT almacen_id FROM usuario_almacen WHERE usuario_id = ?)';
+      params.push(userId);
+    }
+
     if (tipo) { where += ' AND m.tipo = ?'; params.push(tipo); }
     if (almacen_id) { where += ' AND m.almacen_id = ?'; params.push(almacen_id); }
     if (desde) { where += ' AND m.fecha_movimiento >= ?'; params.push(desde); }

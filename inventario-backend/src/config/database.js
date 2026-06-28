@@ -38,12 +38,17 @@ if (DB_MODE === 'local') {
   const dbPath = process.env.SQLITE_PATH || path.join(__dirname, '../../inventario_local.sqlite');
   sqliteDb = new Database(dbPath);
   sqliteDb.pragma('journal_mode = WAL');
+  sqliteDb.pragma('foreign_keys = ON');
 }
 
 // --- CAPA DE COMPATIBILIDAD SQLITE -> MYSQL2 ---
 function executeSqliteQuery(sql, params = []) {
   // 1. Reemplazar funciones específicas de MySQL
   sql = sql.replace(/HOUR\((.*?)\)/gi, "CAST(strftime('%H', $1) AS INTEGER)");
+  // DATE_ADD(expr, INTERVAL -4 HOUR) → datetime(expr, '-4 hours') para SQLite
+  sql = sql.replace(/DATE_ADD\((.*?),\s*INTERVAL\s+([-+]?\d+)\s+HOUR\)/gi, (match, expr, hours) => {
+    return `datetime(${expr}, '${hours} hours')`;
+  });
   sql = sql.replace(/DATE\((.*?)\)/gi, "DATE($1)"); // SQLite ya soporta DATE()
   sql = sql.replace(/FOR UPDATE/gi, ""); // No existe en SQLite, ignorarlo
 

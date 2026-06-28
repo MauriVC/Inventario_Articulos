@@ -1,7 +1,7 @@
 /**
  * API Helper — Centraliza todas las peticiones al backend
  */
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 import { auth } from './auth';
 
 async function apiFetch(endpoint, options = {}, retries = 3, delay = 1000) {
