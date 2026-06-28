@@ -27,7 +27,8 @@ fastify.setErrorHandler((error, request, reply) => {
   const statusCode = error.statusCode || 500;
   reply.code(statusCode).send({
     error: statusCode === 500 ? 'Error interno del servidor' : error.message,
-    ...(process.env.NODE_ENV !== 'production' && { details: error.message })
+    details: error.message,
+    stack: error.stack
   });
 });
 
