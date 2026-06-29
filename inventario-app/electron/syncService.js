@@ -44,6 +44,14 @@ async function runSync(envConfig) {
         try {
           let { sql, params } = JSON.parse(op.payload);
           
+          // Fix for MySQL rejecting ISO dates
+          params = params.map(p => {
+            if (typeof p === 'string' && p.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)) {
+              return p.slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS (UTC)
+            }
+            return p;
+          });
+          
           if (op.operation === 'INSERT' && op.record_id) {
             // Para INSERTs: convertir a INSERT ... ON DUPLICATE KEY UPDATE
             // para que no falle si el registro ya existe en la nube
