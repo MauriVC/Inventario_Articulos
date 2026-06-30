@@ -71,11 +71,19 @@
           </table>
         </div>
         <!-- Paginación dinámica -->
-        <div class="pagination" v-if="totalRecords > 0">
-          <span class="pagination-info">
-            Mostrando {{ paginationStart }}-{{ paginationEnd }} de {{ totalRecords }} registros
-          </span>
-          <div class="pagination-buttons">
+        <div class="pagination flex items-center justify-between" v-if="totalRecords > 0" style="padding: var(--space-4); border-top: 1px solid var(--color-gray-100);">
+          <div class="flex items-center gap-3">
+            <span class="pagination-info text-sm text-muted">
+              Mostrando {{ paginationStart }}-{{ paginationEnd }} de {{ totalRecords }} registros
+            </span>
+            <select v-model="pageSize" class="form-select" style="width: auto; padding-top: 4px; padding-bottom: 4px; font-size: 13px;" @change="loadMovimientos(1)">
+              <option :value="5">5 por página</option>
+              <option :value="10">10 por página</option>
+              <option :value="20">20 por página</option>
+              <option :value="50">50 por página</option>
+            </select>
+          </div>
+          <div class="pagination-buttons flex gap-1">
             <button class="pagination-btn" :disabled="currentPage <= 1" @click="loadMovimientos(1)">&laquo;</button>
             <button class="pagination-btn" :disabled="currentPage <= 1" @click="loadMovimientos(currentPage - 1)">&lsaquo;</button>
             <button 
@@ -182,11 +190,11 @@ const movimientos = ref([])
 const almacenes = ref([])
 const currentPage = ref(1)
 const totalRecords = ref(0)
-const pageSize = 20
+const pageSize = ref(10)
 
-const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize)))
-const paginationStart = computed(() => ((currentPage.value - 1) * pageSize) + 1)
-const paginationEnd = computed(() => Math.min(currentPage.value * pageSize, totalRecords.value))
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize.value)))
+const paginationStart = computed(() => totalRecords.value > 0 ? ((currentPage.value - 1) * pageSize.value) + 1 : 0)
+const paginationEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalRecords.value))
 
 const visiblePages = computed(() => {
   const pages = []
@@ -226,8 +234,8 @@ async function loadMovimientos(page = 1) {
     if (filters.value.desde) params.desde = filters.value.desde
     if (filters.value.hasta) params.hasta = filters.value.hasta
     if (filters.value.search) params.search = filters.value.search
-    params.limit = pageSize
-    params.offset = (page - 1) * pageSize
+    params.limit = pageSize.value
+    params.offset = (page - 1) * pageSize.value
 
     const res = await api.getMovimientos(params)
     movimientos.value = res.data

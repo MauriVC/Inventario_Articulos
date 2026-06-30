@@ -53,9 +53,9 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="art in filteredArticulos" :key="art.id">
+              <template v-for="art in paginatedArticulos" :key="art.id">
               <tr>
-                <td class="font-semibold text-primary">{{ art.codigo || '—' }}</td>
+                <td class="font-semibold text-primary" style="white-space: nowrap;">{{ art.codigo || '—' }}</td>
                 <td>
                   <div class="flex items-center gap-2" style="flex-wrap: wrap;">
                     <span class="font-medium">{{ art.nombre }}</span>
@@ -114,13 +114,39 @@
                 </td>
               </tr>
               </template>
-              <tr v-if="filteredArticulos.length === 0">
+              <tr v-if="paginatedArticulos.length === 0">
                 <td colspan="10" class="text-center text-muted" style="padding: var(--space-6);">
                   No se encontraron artículos
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <!-- Paginación -->
+        <div class="pagination flex items-center justify-between" v-if="totalRecords > 0" style="padding: var(--space-4); border-top: 1px solid var(--color-gray-100);">
+          <div class="flex items-center gap-3">
+            <span class="pagination-info text-sm text-muted">
+              Mostrando {{ paginationStart }}-{{ paginationEnd }} de {{ totalRecords }} artículos
+            </span>
+            <select v-model="itemsPerPage" class="form-select" style="width: auto; padding-top: 4px; padding-bottom: 4px; font-size: 13px;" @change="currentPage = 1">
+              <option :value="5">5 por página</option>
+              <option :value="10">10 por página</option>
+              <option :value="20">20 por página</option>
+              <option :value="50">50 por página</option>
+            </select>
+          </div>
+          <div class="pagination-buttons flex gap-1">
+            <button class="pagination-btn" :disabled="currentPage <= 1" @click="currentPage = 1">&laquo;</button>
+            <button class="pagination-btn" :disabled="currentPage <= 1" @click="currentPage--">&lsaquo;</button>
+            <button 
+              v-for="p in visiblePages" :key="p"
+              class="pagination-btn" 
+              :class="{ active: p === currentPage }"
+              @click="currentPage = p"
+            >{{ p }}</button>
+            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="currentPage++">&rsaquo;</button>
+            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="currentPage = totalPages">&raquo;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -249,7 +275,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { Search, Plus, Pencil, Trash2, ChevronDown, X, Save, Tags } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
@@ -306,14 +332,56 @@ function agregarDato() {
   selectedDato.value = ''
 }
 
-// Filtros
+// Filtros y Paginación
 const filteredArticulos = computed(() => {
   return articulos.value.filter(a => {
     const matchSearch = !search.value || a.nombre.toLowerCase().includes(search.value.toLowerCase()) || (a.codigo && a.codigo.toLowerCase().includes(search.value.toLowerCase()))
     const matchCat = !selectedCategoria.value || a.categoria_nombre === selectedCategoria.value
     const matchMarca = !selectedMarca.value || a.marca_nombre === selectedMarca.value
-    return matchSearch && matchCat && matchMarca
+    const matchAlmacen = !selectedAlmacen.value || a.almacen_id === selectedAlmacen.value
+    return matchSearch && matchCat && matchMarca && matchAlmacen
+  }).sort((a, b) => {
+    // Extraer número de ART-YYYY-XXXX si es posible, o comparar alfabéticamente
+    const codeA = a.codigo || ''
+    const codeB = b.codigo || ''
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
   })
+})
+
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+const paginatedArticulos = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredArticulos.value.slice(start, end)
+})
+
+const totalRecords = computed(() => filteredArticulos.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / itemsPerPage.value)))
+const paginationStart = computed(() => totalRecords.value > 0 ? ((currentPage.value - 1) * itemsPerPage.value) + 1 : 0)
+const paginationEnd = computed(() => Math.min(currentPage.value * itemsPerPage.value, totalRecords.value))
+
+const visiblePages = computed(() => {
+  const pages = []
+  const total = totalPages.value
+  const current = currentPage.value
+  
+  let start = Math.max(1, current - 2)
+  let end = Math.min(total, current + 2)
+  
+  if (end - start < 4) {
+    if (start === 1) end = Math.min(total, start + 4)
+    else start = Math.max(1, end - 4)
+  }
+  
+  for (let i = start; i <= end; i++) pages.push(i)
+  return pages
+})
+
+// Resetear página a 1 si cambian los filtros
+watch([search, selectedCategoria, selectedMarca, selectedAlmacen], () => {
+  currentPage.value = 1
 })
 
 function toggleExpand(id) {

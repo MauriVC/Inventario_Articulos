@@ -37,11 +37,11 @@
         <!-- Left Column (Sub-grid for Pie Chart and Bar Chart) -->
         <div class="charts-left-col">
           <!-- Pie Chart (Doughnut) -->
-          <div class="card">
+          <div class="card" style="display: flex; flex-direction: column;">
             <div class="card-header border-b-0 pb-0">
               <h3 class="font-bold text-gray-800">Distribución (Día)</h3>
             </div>
-            <div class="card-body flex-center flex-column" style="padding: var(--space-5) var(--space-4);">
+            <div class="card-body flex-center flex-column" style="padding: var(--space-5) var(--space-4); flex: 1;">
               <div class="doughnut-chart-container">
                 <div class="pie-chart" :style="{ background: pieChartBackground }">
                   <div class="doughnut-hole flex flex-column flex-center justify-center">
@@ -62,11 +62,11 @@
           </div>
 
           <!-- Activity Chart -->
-          <div class="card">
+          <div class="card" style="display: flex; flex-direction: column;">
             <div class="card-header border-b-0 pb-0 flex items-center justify-between" style="flex-wrap: wrap; gap: 8px;">
               <h3 class="font-bold text-gray-800">Actividad del Día</h3>
             </div>
-            <div class="card-body" style="padding-bottom: 0;">
+            <div class="card-body" style="padding-bottom: 0; display: flex; flex-direction: column; flex: 1;">
               <div class="chart-bars-wrapper">
                 <div class="chart-bars">
                   <div class="chart-bar-group" v-for="item in chartData" :key="item.label">
@@ -124,7 +124,7 @@
               <div class="card-header border-b-0" style="padding: var(--space-4) var(--space-4) 0;">
                 <h3 class="font-bold text-gray-800" style="font-size: var(--font-size-sm);">Top Artículos (Día)</h3>
               </div>
-              <div class="card-body" style="padding: 0;">
+              <div class="card-body scrollable-list" style="padding: 0;">
                 <div v-if="topArticulos.length === 0" class="p-4 text-center text-sm text-muted">
                   Sin movimientos.
                 </div>
@@ -145,7 +145,7 @@
                 <h3 class="font-bold text-gray-800" style="font-size: var(--font-size-sm);">Alertas Stock</h3>
                 <span class="badge badge-warning" v-if="stockAlerts.length > 0">{{ stockAlerts.length }}</span>
               </div>
-              <div class="card-body" style="padding: 0;">
+              <div class="card-body scrollable-list" style="padding: 0;">
                 <div v-if="stockAlerts.length === 0" class="p-4 text-center text-sm text-muted">
                   No hay alertas.
                 </div>
@@ -174,7 +174,7 @@
           </router-link>
         </div>
         <div class="card-body" style="padding: 0 var(--space-5) var(--space-5);">
-          <div class="table-wrapper">
+          <div class="table-wrapper table-scroll">
             <table class="table custom-table">
               <thead>
                 <tr>
@@ -429,7 +429,7 @@ const pieChartBackground = computed(() => {
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
 }
 .dashboard-right-col {
   display: flex;
@@ -440,7 +440,8 @@ const pieChartBackground = computed(() => {
 /* Chart */
 .chart-bars-wrapper {
   position: relative;
-  height: 200px;
+  flex: 1;
+  min-height: 200px;
   margin-top: var(--space-2);
   background: repeating-linear-gradient(
     to bottom,
@@ -614,6 +615,10 @@ const pieChartBackground = computed(() => {
   color: #64748b;
   text-align: left;
   border: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f1f5f9;
 }
 .custom-table th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
 .custom-table th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
@@ -624,4 +629,31 @@ const pieChartBackground = computed(() => {
   vertical-align: middle;
 }
 .custom-table tbody tr:last-child td { border-bottom: none; }
+
+/* Scrollable List for Alerts/Top */
+.scrollable-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.scrollable-list::-webkit-scrollbar {
+  width: 5px;
+}
+.scrollable-list::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Scrollable Table */
+.table-scroll {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.table-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.table-scroll::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
 </style>

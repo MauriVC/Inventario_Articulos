@@ -44,22 +44,26 @@ async function articulosRoutes(fastify) {
     // Cargar variantes (items) y atributos en lote
     const ids = articulos.map(a => a.id);
 
-    const [items] = await pool.query(`
-      SELECT ai.id, ai.articulo_id, ai.stock, ai.estado,
-             c.nombre AS color_nombre, c.codigo_hex
-      FROM articulo_items ai
-      JOIN colores c ON ai.color_id = c.id
-      WHERE ai.articulo_id IN (?)
-      ORDER BY c.nombre
-    `, [ids]);
-
-    const [datosAsignados] = await pool.query(`
-      SELECT ad.articulo_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
-      FROM articulo_datos ad
-      JOIN datos d ON ad.dato_id = d.id
-      JOIN atributos at ON d.atributo_id = at.id
-      WHERE ad.articulo_id IN (?)
-    `, [ids]);
+    const [
+      [items],
+      [datosAsignados]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT ai.id, ai.articulo_id, ai.stock, ai.estado,
+               c.nombre AS color_nombre, c.codigo_hex
+        FROM articulo_items ai
+        JOIN colores c ON ai.color_id = c.id
+        WHERE ai.articulo_id IN (?)
+        ORDER BY c.nombre
+      `, [ids]),
+      pool.query(`
+        SELECT ad.articulo_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
+        FROM articulo_datos ad
+        JOIN datos d ON ad.dato_id = d.id
+        JOIN atributos at ON d.atributo_id = at.id
+        WHERE ad.articulo_id IN (?)
+      `, [ids])
+    ]);
 
     const result = articulos.map(art => ({
       ...art,
@@ -86,19 +90,23 @@ async function articulosRoutes(fastify) {
     `, [id]);
     if (articulos.length === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
 
-    const [variantes] = await pool.query(`
-      SELECT ai.id, ai.stock, ai.estado, c.id AS color_id, c.nombre AS color_nombre, c.codigo_hex
-      FROM articulo_items ai JOIN colores c ON ai.color_id = c.id
-      WHERE ai.articulo_id = ?
-    `, [id]);
-
-    const [atributos] = await pool.query(`
-      SELECT d.id AS dato_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
-      FROM articulo_datos ad
-      JOIN datos d ON ad.dato_id = d.id
-      JOIN atributos at ON d.atributo_id = at.id
-      WHERE ad.articulo_id = ?
-    `, [id]);
+    const [
+      [variantes],
+      [atributos]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT ai.id, ai.stock, ai.estado, c.id AS color_id, c.nombre AS color_nombre, c.codigo_hex
+        FROM articulo_items ai JOIN colores c ON ai.color_id = c.id
+        WHERE ai.articulo_id = ?
+      `, [id]),
+      pool.query(`
+        SELECT d.id AS dato_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
+        FROM articulo_datos ad
+        JOIN datos d ON ad.dato_id = d.id
+        JOIN atributos at ON d.atributo_id = at.id
+        WHERE ad.articulo_id = ?
+      `, [id])
+    ]);
 
     return {
       data: {

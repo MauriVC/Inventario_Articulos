@@ -50,25 +50,30 @@ async function paquetesRoutes(fastify) {
   // GET /api/paquetes/:id
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params;
-    const [paquetes] = await pool.query(`
-      SELECT p.*, alm.nombre AS almacen_nombre, cat.nombre AS categoria_nombre
-      FROM paquetes p
-      JOIN almacenes alm ON p.almacen_id = alm.id
-      LEFT JOIN categorias cat ON p.categoria_id = cat.id
-      WHERE p.id = ?
-    `, [id]);
-    if (paquetes.length === 0) return reply.code(404).send({ error: 'Paquete no encontrado' });
+    const [
+      [paquetes],
+      [contenido]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT p.*, alm.nombre AS almacen_nombre, cat.nombre AS categoria_nombre
+        FROM paquetes p
+        JOIN almacenes alm ON p.almacen_id = alm.id
+        LEFT JOIN categorias cat ON p.categoria_id = cat.id
+        WHERE p.id = ?
+      `, [id]),
+      pool.query(`
+        SELECT pc.cantidad, ai.id AS articulo_item_id, ai.stock,
+               a.nombre AS articulo_nombre, a.requiere_devolucion,
+               c.nombre AS color_nombre, c.codigo_hex
+        FROM paquete_contenido pc
+        JOIN articulo_items ai ON pc.articulo_item_id = ai.id
+        JOIN articulos a ON ai.articulo_id = a.id
+        JOIN colores c ON ai.color_id = c.id
+        WHERE pc.paquete_id = ?
+      `, [id])
+    ]);
 
-    const [contenido] = await pool.query(`
-      SELECT pc.cantidad, ai.id AS articulo_item_id, ai.stock,
-             a.nombre AS articulo_nombre, a.requiere_devolucion,
-             c.nombre AS color_nombre, c.codigo_hex
-      FROM paquete_contenido pc
-      JOIN articulo_items ai ON pc.articulo_item_id = ai.id
-      JOIN articulos a ON ai.articulo_id = a.id
-      JOIN colores c ON ai.color_id = c.id
-      WHERE pc.paquete_id = ?
-    `, [id]);
+    if (paquetes.length === 0) return reply.code(404).send({ error: 'Paquete no encontrado' });
 
     return { data: { ...paquetes[0], categoria_nombre: paquetes[0].categoria_nombre || 'Mixta', items: contenido } };
   });
