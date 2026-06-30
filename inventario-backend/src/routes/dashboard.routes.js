@@ -77,7 +77,8 @@ async function dashboardRoutes(fastify) {
       periodo: i,
       label: `${String(i).padStart(2, '0')}:00`,
       entrada: 0,
-      salida: 0
+      salida: 0,
+      baja: 0
     }));
 
     chartRows.forEach(row => {
@@ -85,6 +86,7 @@ async function dashboardRoutes(fastify) {
       if (idx !== -1) {
         if (row.tipo === 'ENTRADA') chartData[idx].entrada = Number(row.total_cantidad);
         if (row.tipo === 'SALIDA') chartData[idx].salida = Number(row.total_cantidad);
+        if (row.tipo === 'BAJA') chartData[idx].baja = Number(row.total_cantidad);
       }
     });
 

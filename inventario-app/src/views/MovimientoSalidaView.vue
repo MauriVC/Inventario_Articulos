@@ -205,6 +205,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Calendar, ArrowUpFromLine, Package, X, Boxes, RotateCcw } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const router = useRouter()
 
@@ -361,7 +362,7 @@ function limpiarPaquete() {
 async function registrarSalida() {
   if (items.value.length === 0 || !selectedAlmacen.value) return
   if (!solicitante.value.carnet || !solicitante.value.nombre || !destino.value) {
-    alert("Por favor, complete los campos obligatorios del solicitante y destino.")
+    showWarning("Por favor, complete los campos obligatorios del solicitante y destino.")
     return
   }
 
@@ -385,10 +386,10 @@ async function registrarSalida() {
     await api.createMovimiento(payload)
     
     // Redirect to historial or success page
-    alert("Salida registrada exitosamente")
+    showSuccess("Salida registrada exitosamente")
     router.push('/historial')
   } catch (error) {
-    alert("Error al registrar la salida: " + error.message)
+    showError("Error al registrar la salida: " + error.message)
   } finally {
     saving.value = false
   }

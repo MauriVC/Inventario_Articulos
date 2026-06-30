@@ -202,7 +202,7 @@ input, select, textarea {
 .form-input-icon .form-input {
   padding-left: 2.5rem;
 }
-.form-input-icon svg {
+.form-input-icon > svg {
   position: absolute;
   left: var(--space-3);
   top: 50%;

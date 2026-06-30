@@ -21,6 +21,7 @@
     "electron-is-dev": "^3.0.1",
     "lucide-vue-next": "^0.460.0",
     "mysql2": "^3.22.5",
+    "sweetalert2": "^11.26.25",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },

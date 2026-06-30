@@ -121,6 +121,7 @@ import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -178,8 +179,10 @@ async function guardar() {
   try {
     if (editing.value) {
       await api.updateAlmacen(editing.value.id, form.value)
+      showSuccess('Almacén actualizado correctamente')
     } else {
       await api.createAlmacen(form.value)
+      showSuccess('Almacén creado correctamente')
     }
     closeModal()
     await cargar()
@@ -192,26 +195,28 @@ async function guardar() {
 
 async function toggleEstado(almacen) {
   const nuevoEstado = almacen.estado === 'Activo' ? 'Inactivo' : 'Activo'
-  if (!confirm(`¿Cambiar estado del almacén "${almacen.nombre}" a ${nuevoEstado}?`)) return
+  if (!await confirmAction('Confirmar', `¿Cambiar estado del almacén "${almacen.nombre}" a ${nuevoEstado}?`)) return
   try {
     await api.updateAlmacen(almacen.id, { ...almacen, estado: nuevoEstado })
     almacen.estado = nuevoEstado
+    showSuccess('Estado actualizado')
   } catch (err) {
-    alert('Error al cambiar estado: ' + err.message)
+    showError('Error al cambiar estado: ' + err.message)
   }
 }
 
 async function eliminar(almacen) {
   if (almacen.totalArticulos > 0) {
-    alert(`No se puede eliminar el almacén "${almacen.nombre}" porque tiene ${almacen.totalArticulos} artículo(s) asignados. Reasigne o elimine los artículos primero.`)
+    showWarning(`No se puede eliminar el almacén "${almacen.nombre}" porque tiene ${almacen.totalArticulos} artículo(s) asignados. Reasigne o elimine los artículos primero.`)
     return
   }
-  if (!confirm(`¿Eliminar el almacén "${almacen.nombre}"? Esta acción no se puede deshacer.`)) return
+  if (!await confirmAction('Eliminar Almacén', `¿Eliminar el almacén "${almacen.nombre}"? Esta acción no se puede deshacer.`)) return
   try {
     await api.deleteAlmacen(almacen.id)
+    showSuccess('Almacén eliminado')
     await cargar()
   } catch (err) {
-    alert('Error al eliminar: ' + err.message)
+    showError('Error al eliminar: ' + err.message)
   }
 }
 </script>

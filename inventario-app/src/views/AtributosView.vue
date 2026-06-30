@@ -151,6 +151,7 @@ import { ref, onMounted } from 'vue'
 import { Plus, PlusCircle, Pencil, Trash2, ChevronRight, X, Save, Tags, Info } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const expandedId = ref(null)
 const showAtributoModal = ref(false)
@@ -205,8 +206,10 @@ async function saveAtributo() {
   try {
     if (editingAtributo.value) {
       await api.updateAtributo(editingAtributo.value.id, atributoForm.value)
+      showSuccess('Atributo actualizado')
     } else {
       await api.createAtributo(atributoForm.value)
+      showSuccess('Atributo creado')
     }
     showAtributoModal.value = false
     await cargar()
@@ -236,6 +239,7 @@ async function saveDato() {
     for (const nombre of nombres) {
       await api.createDato(selectedAtributo.value.id, { nombre })
     }
+    showSuccess('Valor(es) guardado(s)')
     showDatoModal.value = false
     await cargar()
   } catch (err) {
@@ -246,22 +250,24 @@ async function saveDato() {
 }
 
 async function eliminarAtributo(id) {
-  if (!confirm('¿Eliminar este atributo y todos sus valores?')) return
+  if (!await confirmAction('Eliminar Atributo', '¿Eliminar este atributo y todos sus valores?')) return
   try {
     await api.deleteAtributo(id)
+    showSuccess('Atributo eliminado')
     await cargar()
   } catch (err) {
-    alert('Error: ' + err.message)
+    showError('Error: ' + err.message)
   }
 }
 
 async function eliminarDato(atributoId, datoId) {
-  if (!confirm('¿Eliminar este valor?')) return
+  if (!await confirmAction('Eliminar Valor', '¿Eliminar este valor?')) return
   try {
     await api.deleteDato(atributoId, datoId)
+    showSuccess('Valor eliminado')
     await cargar()
   } catch (err) {
-    alert('Error: ' + err.message)
+    showError('Error: ' + err.message)
   }
 }
 </script>

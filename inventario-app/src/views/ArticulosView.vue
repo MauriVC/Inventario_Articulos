@@ -253,6 +253,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Search, Plus, Pencil, Trash2, ChevronDown, X, Save, Tags } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editingArticulo = ref(null)
@@ -357,13 +358,14 @@ async function toggleEstado(art) {
   if (!auth.isAdmin) return
   
   const nuevoEstado = art.estado === 'Activo' ? 'Inactivo' : 'Activo'
-  if (!confirm(`¿Cambiar estado del artículo a ${nuevoEstado}?`)) return
+  if (!await confirmAction('Confirmar', `¿Cambiar estado del artículo a ${nuevoEstado}?`)) return
   
   try {
     await api.toggleEstadoArticulo(art.id, nuevoEstado)
     art.estado = nuevoEstado
+    showSuccess('Estado actualizado')
   } catch (error) {
-    alert("Error al cambiar estado: " + error.message)
+    showError("Error al cambiar estado: " + error.message)
   }
 }
 
@@ -402,7 +404,7 @@ async function openModal(id = null) {
         datoId: a.dato_id
       }))
     } catch (err) {
-      alert("Error cargando el artículo: " + err.message)
+      showError("Error cargando el artículo: " + err.message)
       loading.value = false
       return
     } finally {
@@ -465,8 +467,10 @@ async function guardarArticulo() {
     }
     if (editingArticulo.value) {
       await api.updateArticulo(editingArticulo.value, payload)
+      showSuccess('Artículo actualizado correctamente')
     } else {
       await api.createArticulo(payload)
+      showSuccess('Artículo creado correctamente')
     }
     showModal.value = false
     await loadArticulos()
@@ -478,12 +482,13 @@ async function guardarArticulo() {
 }
 
 async function eliminarArticulo(id) {
-  if (!confirm('¿Estás seguro de eliminar este artículo?')) return
+  if (!await confirmAction('Eliminar Artículo', '¿Estás seguro de eliminar este artículo?')) return
   try {
     await api.deleteArticulo(id)
+    showSuccess('Artículo eliminado')
     await loadArticulos()
   } catch (err) {
-    alert('Error al eliminar: ' + err.message)
+    showError('Error al eliminar: ' + err.message)
   }
 }
 

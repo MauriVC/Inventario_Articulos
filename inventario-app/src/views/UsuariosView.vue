@@ -152,6 +152,7 @@
 import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save, UserMinus, UserCheck } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const loading = ref(true)
@@ -255,8 +256,9 @@ async function saveUsuario() {
     }
     closeModal()
     await loadUsuarios()
+    showSuccess(isEditing.value ? 'Usuario actualizado' : 'Usuario creado')
   } catch (err) {
-    alert('Error al guardar usuario: ' + (err.response?.data?.error || err.message))
+    showError('Error al guardar usuario: ' + (err.response?.data?.error || err.message))
   } finally {
     saving.value = false
   }
@@ -264,7 +266,7 @@ async function saveUsuario() {
 
 async function toggleEstado(usuario) {
   const newEstado = usuario.estado === 'Activo' ? 'Inactivo' : 'Activo'
-  if (!confirm(`¿Estás seguro de que deseas ${newEstado === 'Inactivo' ? 'inhabilitar' : 'habilitar'} al usuario ${usuario.nombres}?`)) {
+  if (!await confirmAction('Cambiar Estado', `¿Estás seguro de que deseas ${newEstado === 'Inactivo' ? 'inhabilitar' : 'habilitar'} al usuario ${usuario.nombres}?`)) {
     return
   }
 
@@ -280,8 +282,9 @@ async function toggleEstado(usuario) {
       almacenes: usuario.almacenes.map(a => a.id)
     })
     await loadUsuarios()
+    showSuccess(`Usuario ${newEstado === 'Inactivo' ? 'inhabilitado' : 'habilitado'}`)
   } catch (err) {
-    alert('Error al cambiar estado: ' + err.message)
+    showError('Error al cambiar estado: ' + err.message)
   }
 }
 </script>

@@ -73,6 +73,7 @@
                     <div class="chart-bar-container">
                       <div class="chart-bar bar-entrada" :style="{ height: maxChartValue ? (item.entrada / maxChartValue * 100) + '%' : '0%' }" :title="'Entradas: ' + item.entrada"></div>
                       <div class="chart-bar bar-salida" :style="{ height: maxChartValue ? (item.salida / maxChartValue * 100) + '%' : '0%' }" :title="'Salidas: ' + item.salida"></div>
+                      <div class="chart-bar bar-baja" :style="{ height: maxChartValue ? ((item.baja || 0) / maxChartValue * 100) + '%' : '0%' }" :title="'Bajas: ' + (item.baja || 0)"></div>
                     </div>
                     <span class="chart-label">{{ item.label }}</span>
                   </div>
@@ -81,6 +82,7 @@
               <div class="chart-legend" style="padding-bottom: var(--space-4); margin-top: var(--space-2);">
                 <span class="chart-legend-item"><span class="chart-legend-dot dot-entrada"></span> <span class="text-sm font-medium text-gray-600">Entradas</span></span>
                 <span class="chart-legend-item"><span class="chart-legend-dot dot-salida"></span> <span class="text-sm font-medium text-gray-600">Salidas</span></span>
+                <span class="chart-legend-item"><span class="chart-legend-dot dot-baja"></span> <span class="text-sm font-medium text-gray-600">Bajas</span></span>
               </div>
             </div>
           </div>
@@ -266,7 +268,7 @@ async function loadDashboardData() {
 
 const maxChartValue = computed(() => {
   if (!chartData.value.length) return 0
-  return Math.max(...chartData.value.map(d => Math.max(d.entrada, d.salida)))
+  return Math.max(...chartData.value.map(d => Math.max(d.entrada, d.salida, d.baja || 0)))
 })
 
 const totalMovimientosMes = computed(() => {
@@ -499,6 +501,9 @@ const pieChartBackground = computed(() => {
 }
 .bar-salida {
   background: var(--color-danger);
+}
+.bar-baja {
+  background: var(--color-warning);
 }
 .chart-label {
   font-size: var(--font-size-xs);

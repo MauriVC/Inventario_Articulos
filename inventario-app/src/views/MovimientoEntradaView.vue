@@ -175,6 +175,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Calendar, ArrowDownToLine, Package, X } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const router = useRouter()
 
@@ -311,7 +312,7 @@ function addArticulo(a) {
   if (esDevolucion.value) {
     const pendiente = pendientesList.value.find(p => p.articulo_item_id === a.articulo_item_id);
     if (!pendiente) {
-      alert('Actualmente no existe ningún préstamo pendiente de devolución para este artículo.');
+      showWarning('Actualmente no existe ningún préstamo pendiente de devolución para este artículo.');
       return;
     }
     maxDevolucion = pendiente.max_devolucion;
@@ -340,7 +341,7 @@ function addArticulo(a) {
 async function registrarEntrada() {
   if (items.value.length === 0 || !selectedAlmacen.value) return
   if (!solicitante.value.carnet || !solicitante.value.nombre || !procedencia.value) {
-    alert("Por favor, complete los campos obligatorios del solicitante y procedencia.")
+    showWarning("Por favor, complete los campos obligatorios del solicitante y procedencia.")
     return
   }
 
@@ -363,10 +364,10 @@ async function registrarEntrada() {
     }
 
     await api.createMovimiento(payload)
-    alert("Entrada registrada exitosamente")
+    showSuccess("Entrada registrada exitosamente")
     router.push('/historial')
   } catch (error) {
-    alert("Error al registrar la entrada: " + error.message)
+    showError("Error al registrar la entrada: " + error.message)
   } finally {
     saving.value = false
   }

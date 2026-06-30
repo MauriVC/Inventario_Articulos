@@ -69,6 +69,7 @@ import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -102,8 +103,9 @@ async function toggleEstado(u) {
   try {
     await api.updateUnidad(u.id, { nombre: u.nombre, abreviatura: u.abreviatura, estado: nuevoEstado })
     await cargar()
+    showSuccess('Estado cambiado')
   } catch (err) {
-    alert('Error al cambiar estado: ' + err.message)
+    showError('Error al cambiar estado: ' + err.message)
   }
 }
 
@@ -117,8 +119,10 @@ async function guardar() {
   try {
     if (editing.value) {
       await api.updateUnidad(editing.value.id, form.value)
+      showSuccess('Unidad actualizada')
     } else {
       await api.createUnidad(form.value)
+      showSuccess('Unidad creada')
     }
     showModal.value = false
     await cargar()
@@ -130,12 +134,13 @@ async function guardar() {
 }
 
 async function eliminar(id) {
-  if (!confirm('¿Eliminar esta unidad de medida?')) return
+  if (!await confirmAction('Eliminar Unidad', '¿Eliminar esta unidad de medida?')) return
   try {
     await api.deleteUnidad(id)
     await cargar()
+    showSuccess('Unidad eliminada')
   } catch (err) {
-    alert('Error: ' + err.message)
+    showError('Error: ' + err.message)
   }
 }
 </script>

@@ -59,6 +59,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -86,13 +87,13 @@ async function guardar() {
   if (!form.value.nombre.trim()) { formError.value = 'El nombre es obligatorio'; return }
   saving.value = true; formError.value = ''
   try {
-    if (editing.value) { await api.updateCategoria(editing.value.id, form.value) } else { await api.createCategoria(form.value) }
+    if (editing.value) { await api.updateCategoria(editing.value.id, form.value); showSuccess('Categoría actualizada') } else { await api.createCategoria(form.value); showSuccess('Categoría creada') }
     showModal.value = false; await cargar()
   } catch (err) { formError.value = err.message } finally { saving.value = false }
 }
 
 async function eliminar(id) {
-  if (!confirm('¿Eliminar esta categoría?')) return
-  try { await api.deleteCategoria(id); await cargar() } catch (err) { alert('Error: ' + err.message) }
+  if (!await confirmAction('Eliminar Categoría', '¿Eliminar esta categoría?')) return
+  try { await api.deleteCategoria(id); showSuccess('Categoría eliminada'); await cargar() } catch (err) { showError('Error: ' + err.message) }
 }
 </script>

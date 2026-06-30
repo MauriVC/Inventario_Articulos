@@ -55,6 +55,7 @@ import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -80,13 +81,13 @@ async function guardar() {
   if (!form.value.nombre.trim() || !form.value.codigo_hex.trim()) { formError.value = 'El nombre y el color son obligatorios'; return }
   saving.value = true; formError.value = ''
   try {
-    if (editing.value) { await api.updateColor(editing.value.id, form.value) } else { await api.createColor(form.value) }
+    if (editing.value) { await api.updateColor(editing.value.id, form.value); showSuccess('Color actualizado') } else { await api.createColor(form.value); showSuccess('Color creado') }
     showModal.value = false; await cargar()
   } catch (err) { formError.value = err.message } finally { saving.value = false }
 }
 
 async function eliminar(id) {
-  if (!confirm('¿Eliminar este color?')) return
-  try { await api.deleteColor(id); await cargar() } catch (err) { alert('Error: ' + err.message) }
+  if (!await confirmAction('Eliminar Color', '¿Eliminar este color?')) return
+  try { await api.deleteColor(id); showSuccess('Color eliminado'); await cargar() } catch (err) { showError('Error: ' + err.message) }
 }
 </script>

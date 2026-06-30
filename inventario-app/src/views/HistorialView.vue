@@ -162,6 +162,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Search, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw } from 'lucide-vue-next'
 import { api } from '@/api'
+import { showError } from '@/utils/alerts'
 
 function tipoBadgeClass(tipo) {
   if (tipo === 'SALIDA') return 'badge-danger'
@@ -242,7 +243,7 @@ async function openDetalle(id) {
     selectedMov.value = res.data
   } catch (error) {
     console.error("Error cargando detalle:", error)
-    alert("No se pudo cargar el detalle del movimiento.")
+    showError("No se pudo cargar el detalle del movimiento.")
   }
 }
 </script>

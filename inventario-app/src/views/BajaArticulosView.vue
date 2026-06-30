@@ -174,6 +174,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Calendar, PackageMinus, X, AlertTriangle } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const router = useRouter()
 
@@ -282,7 +283,7 @@ async function buscarSolicitante() {
 
 function addArticulo(a) {
   if (a.stock <= 0) {
-    alert('Este artículo no tiene stock disponible para dar de baja.')
+    showWarning('Este artículo no tiene stock disponible para dar de baja.')
     return
   }
   const existing = items.value.find(i => i.articulo_item_id === a.articulo_item_id)
@@ -305,11 +306,11 @@ function addArticulo(a) {
 async function registrarBaja() {
   if (items.value.length === 0 || !selectedAlmacen.value) return
   if (!motivoBaja.value || !responsable.value || !responsableCi.value) {
-    alert("Por favor, complete el carnet de identidad, el motivo de baja y el responsable.")
+    showWarning("Por favor, complete el carnet de identidad, el motivo de baja y el responsable.")
     return
   }
 
-  if (!confirm(`¿Está seguro de dar de baja la cantidad especificada de ${items.value.length} artículo(s)? Se reducirá el stock actual.`)) {
+  if (!await confirmAction('Confirmar Baja', `¿Está seguro de dar de baja la cantidad especificada de ${items.value.length} artículo(s)? Se reducirá el stock actual.`)) {
     return
   }
 
@@ -331,10 +332,10 @@ async function registrarBaja() {
     }
 
     await api.createMovimiento(payload)
-    alert("Baja registrada exitosamente.")
+    showSuccess("Baja registrada exitosamente.")
     router.push('/historial')
   } catch (error) {
-    alert("Error al registrar la baja: " + error.message)
+    showError("Error al registrar la baja: " + error.message)
   } finally {
     saving.value = false
   }
