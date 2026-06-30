@@ -40,3 +40,31 @@ export const confirmAction = async (title, text, confirmButtonText = 'Aceptar', 
   });
   return result.isConfirmed;
 };
+
+export const showToast = (message, type = 'success') => {
+  const isPDF = type === 'pdf';
+  const isExcel = type === 'excel';
+  let background = '#fff';
+  let color = '#198754';
+  
+  if (isPDF) {
+    background = '#fff5f5';
+    color = '#e53e3e';
+  } else if (isExcel) {
+    background = '#f0fff4';
+    color = '#38a169';
+  }
+
+  return Swal.fire({
+    toast: true,
+    position: 'bottom-end',
+    icon: 'success',
+    title: message,
+    showConfirmButton: false,
+    timer: 3000,
+    timerProgressBar: true,
+    background: background,
+    color: color,
+    iconColor: color
+  });
+};

@@ -21,6 +21,9 @@
           <input v-model="filters.search" type="text" class="form-input" placeholder="Buscar código o solicitante..." style="width: 240px;" @keyup.enter="loadMovimientos(1)" />
         </div>
       </div>
+      <button class="btn btn-primary" style="padding-left: 16px; padding-right: 16px;" @click="openExportFullModal">
+        <Download :size="18" /> Descargar Historial
+      </button>
     </div>
 
     <!-- Table -->
@@ -158,8 +161,45 @@
             </tbody>
           </table>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer flex items-center justify-between">
+          <button class="btn btn-primary" @click="exportingFull = false; showExportModal = true">
+            <Download :size="16" /> Descargar Movimiento
+          </button>
           <button class="btn btn-secondary" @click="selectedMov = null">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" v-if="showExportModal" @click.self="showExportModal = false" style="z-index: 1100;">
+      <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+          <h2>{{ exportingFull ? 'Descargar Historial' : 'Descargar Movimiento' }}</h2>
+          <button class="btn btn-ghost btn-icon" @click="showExportModal = false"><X :size="20" /></button>
+        </div>
+        <div class="modal-body text-center" style="padding: var(--space-6);">
+          <p class="text-muted mb-6">
+            <template v-if="exportingFull">
+              Elige el formato en el que deseas descargar el reporte completo del historial actual.
+            </template>
+            <template v-else>
+              Elige el formato en el que deseas descargar el detalle del movimiento <strong v-if="selectedMov" class="text-gray-800">{{ selectedMov.codigo }}</strong>.
+            </template>
+          </p>
+          <div class="flex gap-4 justify-center">
+            <button style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 130px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; cursor: pointer; transition: all 0.2s;" @click="handleDownloadPDF" onmouseover="this.style.borderColor='#e53e3e'; this.style.backgroundColor='#fff5f5'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#fff'">
+              <div style="background: #fed7d7; padding: 14px; border-radius: 50%; color: #e53e3e; display: flex; align-items: center; justify-content: center;">
+                <FileText :size="28" />
+              </div>
+              <span class="font-bold" style="color: #4a5568;">Documento PDF</span>
+            </button>
+            <button style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 130px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; cursor: pointer; transition: all 0.2s;" @click="handleDownloadExcel" onmouseover="this.style.borderColor='#38a169'; this.style.backgroundColor='#f0fff4'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#fff'">
+              <div style="background: #c6f6d5; padding: 14px; border-radius: 50%; color: #38a169; display: flex; align-items: center; justify-content: center;">
+                <FileSpreadsheet :size="28" />
+              </div>
+              <span class="font-bold" style="color: #4a5568;">Hoja de Excel</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -168,9 +208,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Search, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw } from 'lucide-vue-next'
+import { Search, Eye, ArrowUpFromLine, ArrowDownToLine, X, PackageMinus, Boxes, RotateCcw, Download, FileText, FileSpreadsheet } from 'lucide-vue-next'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 import { api } from '@/api'
-import { showError } from '@/utils/alerts'
+import { showError, showToast } from '@/utils/alerts'
 
 function tipoBadgeClass(tipo) {
   if (tipo === 'SALIDA') return 'badge-danger'
@@ -184,7 +227,24 @@ function tipoIcon(tipo) {
 }
 
 const selectedMov = ref(null)
+const showExportModal = ref(false)
+const exportingFull = ref(false)
 const filters = ref({ desde: '', hasta: '', tipo: '', almacen_id: '', search: '' })
+
+function openExportFullModal() {
+  exportingFull.value = true
+  showExportModal.value = true
+}
+
+async function handleDownloadPDF() {
+  if (exportingFull.value) await descargarHistorialPDF()
+  else descargarPDF()
+}
+
+async function handleDownloadExcel() {
+  if (exportingFull.value) await descargarHistorialExcel()
+  else descargarExcel()
+}
 
 const movimientos = ref([])
 const almacenes = ref([])
@@ -253,6 +313,283 @@ async function openDetalle(id) {
     console.error("Error cargando detalle:", error)
     showError("No se pudo cargar el detalle del movimiento.")
   }
+}
+
+function descargarPDF() {
+  if (!selectedMov.value) return
+  
+  const doc = new jsPDF()
+  const mov = selectedMov.value
+  
+  // Header
+  doc.setFontSize(20)
+  doc.setTextColor(40, 40, 40)
+  doc.text(`Detalle de Movimiento: ${mov.codigo}`, 14, 22)
+  
+  doc.setFontSize(11)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Fecha: ${new Date(mov.fecha_movimiento).toLocaleString('es-ES')}`, 14, 32)
+  doc.text(`Tipo: ${mov.tipo}`, 14, 38)
+  
+  // Info section
+  doc.setFontSize(10)
+  doc.setTextColor(60, 60, 60)
+  const isBaja = mov.tipo === 'BAJA'
+  const isEntrada = mov.tipo === 'ENTRADA'
+  
+  doc.text(`Almacén: ${mov.almacen_nombre}`, 14, 50)
+  doc.text(`${isBaja ? 'Responsable' : 'Solicitante'}: ${mov.solicitante_nombre || '—'} ${mov.solicitante_ci ? '(CI: '+mov.solicitante_ci+')' : ''}`, 14, 56)
+  
+  if (isBaja) {
+    doc.text(`Motivo de Baja: ${mov.motivo_baja || '—'}`, 14, 62)
+  } else {
+    doc.text(`${isEntrada ? 'Procedencia' : 'Destino'}: ${mov.destino_procedencia || '—'}`, 14, 62)
+  }
+  
+  doc.text(`Observación: ${mov.observacion || 'Ninguna'}`, 14, 68)
+  
+  if (mov.paquete_nombre) {
+    doc.text(`Paquete: ${mov.paquete_nombre}`, 14, 74)
+  }
+  
+  // Table
+  const tableColumn = ["Artículo", "Color", "Cantidad", "Stock Ant.", "Stock Post."]
+  if (isBaja) tableColumn.push("Observación")
+  else tableColumn.push("Devolución")
+  
+  const tableRows = []
+  
+  mov.detalles.forEach(d => {
+    const row = [
+      d.articulo_nombre,
+      d.color_nombre,
+      d.cantidad,
+      d.stock_anterior,
+      d.stock_posterior
+    ]
+    if (isBaja) row.push(d.observacion || '—')
+    else row.push(d.requiere_devolucion ? 'DEVUELVE' : '—')
+    
+    tableRows.push(row)
+  })
+  
+  autoTable(doc, {
+    startY: 82,
+    head: [tableColumn],
+    body: tableRows,
+    theme: 'grid',
+    headStyles: { fillColor: [52, 73, 94] }
+  })
+  
+  doc.save(`${mov.codigo}.pdf`)
+  showExportModal.value = false
+  showToast("El archivo se descargó correctamente.", "pdf")
+}
+
+function descargarExcel() {
+  if (!selectedMov.value) return
+  
+  const mov = selectedMov.value
+  const isBaja = mov.tipo === 'BAJA'
+  const isEntrada = mov.tipo === 'ENTRADA'
+  
+  // Resumen del movimiento
+  const resumen = [
+    ["CÓDIGO", mov.codigo],
+    ["TIPO", mov.tipo],
+    ["FECHA", new Date(mov.fecha_movimiento).toLocaleString('es-ES')],
+    ["ALMACÉN", mov.almacen_nombre],
+    [isBaja ? 'RESPONSABLE' : 'SOLICITANTE', `${mov.solicitante_nombre || '—'} ${mov.solicitante_ci ? '(CI: '+mov.solicitante_ci+')' : ''}`]
+  ]
+  
+  if (isBaja) resumen.push(["MOTIVO DE BAJA", mov.motivo_baja || '—'])
+  else resumen.push([isEntrada ? 'PROCEDENCIA' : 'DESTINO', mov.destino_procedencia || '—'])
+  
+  resumen.push(["OBSERVACIÓN", mov.observacion || 'Ninguna'])
+  if (mov.paquete_nombre) resumen.push(["PAQUETE", mov.paquete_nombre])
+  
+  resumen.push([]) // Linea en blanco
+  resumen.push([]) // Linea en blanco
+  
+  // Tabla de Detalles
+  const tableHeader = ["Artículo", "Color", "Cantidad", "Stock Ant.", "Stock Post.", isBaja ? "Observación" : "Devolución"]
+  resumen.push(tableHeader)
+  
+  mov.detalles.forEach(d => {
+    const row = [
+      d.articulo_nombre,
+      d.color_nombre,
+      d.cantidad,
+      d.stock_anterior,
+      d.stock_posterior,
+      isBaja ? (d.observacion || '—') : (d.requiere_devolucion ? 'DEVUELVE' : '—')
+    ]
+    resumen.push(row)
+  })
+  
+  const ws = XLSX.utils.aoa_to_sheet(resumen)
+  
+  // Ajustar anchos de columna dinámicamente
+  const colWidths = []
+  resumen.forEach(row => {
+    row.forEach((cell, i) => {
+      const cellValue = cell !== null && cell !== undefined ? cell.toString() : ''
+      const cellLength = cellValue.length
+      const width = Math.min(Math.max(cellLength + 4, 12), 60) // Padding de 4, mínimo 12, máximo 60
+      if (!colWidths[i] || colWidths[i].wch < width) {
+        colWidths[i] = { wch: width }
+      }
+    })
+  })
+  ws['!cols'] = colWidths
+  
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, "Detalle de Movimiento")
+  
+  XLSX.writeFile(wb, `${mov.codigo}.xlsx`)
+  showExportModal.value = false
+  showToast("El archivo se descargó correctamente.", "excel")
+}
+
+async function fetchFullHistorial() {
+  try {
+    const params = {}
+    if (filters.value.tipo) params.tipo = filters.value.tipo
+    if (filters.value.almacen_id) params.almacen_id = filters.value.almacen_id
+    if (filters.value.desde) params.desde = filters.value.desde
+    if (filters.value.hasta) params.hasta = filters.value.hasta
+    if (filters.value.search) params.search = filters.value.search
+    params.limit = 99999
+    params.offset = 0
+
+    const res = await api.getMovimientos(params)
+    return res.data
+  } catch (error) {
+    console.error("Error cargando historial completo:", error)
+    showError("No se pudo obtener el historial para descargar.")
+    return []
+  }
+}
+
+async function descargarHistorialPDF() {
+  const data = await fetchFullHistorial()
+  if (!data || data.length === 0) {
+    showError("No hay datos para exportar")
+    return
+  }
+  
+  const doc = new jsPDF()
+  
+  // Header
+  doc.setFontSize(18)
+  doc.setTextColor(40, 40, 40)
+  doc.text("Reporte de Historial de Movimientos", 14, 22)
+  
+  doc.setFontSize(10)
+  doc.setTextColor(100, 100, 100)
+  let filterText = "Filtros aplicados: "
+  const applied = []
+  if (filters.value.desde || filters.value.hasta) applied.push(`Fechas: ${filters.value.desde || 'Inicio'} a ${filters.value.hasta || 'Fin'}`)
+  if (filters.value.tipo) applied.push(`Tipo: ${filters.value.tipo}`)
+  if (filters.value.almacen_id) {
+    const alm = almacenes.value.find(a => a.id === filters.value.almacen_id)
+    if (alm) applied.push(`Almacén: ${alm.nombre}`)
+  }
+  if (filters.value.search) applied.push(`Búsqueda: "${filters.value.search}"`)
+  
+  filterText += applied.length > 0 ? applied.join(" | ") : "Ninguno (Historial Completo)"
+  doc.text(filterText, 14, 30)
+  
+  // Table
+  const tableColumn = ["Código", "Tipo", "Almacén", "Responsable/Solic.", "Destino/Proc.", "Fecha"]
+  const tableRows = data.map(m => [
+    m.codigo,
+    m.tipo,
+    m.almacen_nombre,
+    m.solicitante_nombre || '—',
+    m.destino_procedencia || m.motivo_baja || '—',
+    new Date(m.fecha_movimiento).toLocaleString('es-ES')
+  ])
+  
+  autoTable(doc, {
+    startY: 38,
+    head: [tableColumn],
+    body: tableRows,
+    theme: 'grid',
+    headStyles: { fillColor: [52, 73, 94] }
+  })
+  
+  doc.save(`Historial_Movimientos.pdf`)
+  showExportModal.value = false
+  showToast("El archivo se descargó correctamente.", "pdf")
+}
+
+async function descargarHistorialExcel() {
+  const data = await fetchFullHistorial()
+  if (!data || data.length === 0) {
+    showError("No hay datos para exportar")
+    return
+  }
+  
+  const resumen = []
+  
+  // Header
+  resumen.push(["REPORTE DE HISTORIAL DE MOVIMIENTOS"])
+  resumen.push([]) // Linea en blanco
+  
+  let filterText = "Filtros aplicados: "
+  const applied = []
+  if (filters.value.desde || filters.value.hasta) applied.push(`Fechas: ${filters.value.desde || 'Inicio'} a ${filters.value.hasta || 'Fin'}`)
+  if (filters.value.tipo) applied.push(`Tipo: ${filters.value.tipo}`)
+  if (filters.value.almacen_id) {
+    const alm = almacenes.value.find(a => a.id === filters.value.almacen_id)
+    if (alm) applied.push(`Almacén: ${alm.nombre}`)
+  }
+  if (filters.value.search) applied.push(`Búsqueda: "${filters.value.search}"`)
+  filterText += applied.length > 0 ? applied.join(" | ") : "Ninguno (Historial Completo)"
+  
+  resumen.push([filterText])
+  resumen.push([])
+  
+  // Tabla
+  const tableHeader = ["Código", "Tipo", "Almacén", "Responsable / Solicitante", "CI", "Destino / Procedencia", "Observación", "Fecha"]
+  resumen.push(tableHeader)
+  
+  data.forEach(m => {
+    resumen.push([
+      m.codigo,
+      m.tipo,
+      m.almacen_nombre,
+      m.solicitante_nombre || '—',
+      m.solicitante_ci || '—',
+      m.destino_procedencia || m.motivo_baja || '—',
+      m.observacion || '—',
+      new Date(m.fecha_movimiento).toLocaleString('es-ES')
+    ])
+  })
+  
+  const ws = XLSX.utils.aoa_to_sheet(resumen)
+  
+  // Ajustar anchos
+  const colWidths = []
+  resumen.forEach(row => {
+    row.forEach((cell, i) => {
+      const cellValue = cell !== null && cell !== undefined ? cell.toString() : ''
+      const cellLength = cellValue.length
+      const width = Math.min(Math.max(cellLength + 4, 12), 60)
+      if (!colWidths[i] || colWidths[i].wch < width) {
+        colWidths[i] = { wch: width }
+      }
+    })
+  })
+  ws['!cols'] = colWidths
+  
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, "Historial")
+  
+  XLSX.writeFile(wb, `Historial_Movimientos.xlsx`)
+  showExportModal.value = false
+  showToast("El archivo se descargó correctamente.", "excel")
 }
 </script>
 

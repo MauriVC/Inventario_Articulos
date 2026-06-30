@@ -61,6 +61,12 @@ function createWindow() {
 
   ipcMain.handle('get-network-status', () => connectionManager.getStatus());
 
+  // Interceptar descargas para guardarlas automáticamente en la carpeta de Descargas
+  mainWindow.webContents.session.on('will-download', (event, item, webContents) => {
+    const defaultPath = path.join(app.getPath('downloads'), item.getFilename());
+    item.setSavePath(defaultPath);
+  });
+
   // Show window when ready to avoid visual flash
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
