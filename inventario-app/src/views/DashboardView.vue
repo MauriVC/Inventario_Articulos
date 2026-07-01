@@ -192,7 +192,7 @@
                   <td class="font-medium text-gray-700">{{ mov.solicitante }}</td>
                   <td class="text-gray-500">{{ mov.codigo }}</td>
                   <td>
-                    <span class="badge" :class="mov.tipo === 'SALIDA' ? 'badge-danger' : 'badge-success'">
+                    <span class="badge" :class="tipoBadgeClass(mov.tipo)">
                       {{ mov.tipo }}
                     </span>
                   </td>
@@ -220,6 +220,12 @@ import {
   PackagePlus, ClipboardList, ChevronRight, RotateCcw
 } from 'lucide-vue-next'
 import { api } from '@/api'
+
+function tipoBadgeClass(tipo) {
+  if (tipo === 'SALIDA') return 'badge-danger'
+  if (tipo === 'ENTRADA') return 'badge-success'
+  return 'badge-warning'
+}
 
 const loading = ref(true)
 const currentYear = new Date().getFullYear()
