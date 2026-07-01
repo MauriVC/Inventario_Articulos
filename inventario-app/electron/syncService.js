@@ -58,7 +58,7 @@ async function runSync(envConfig) {
             const isBulkInsert = sql.toUpperCase().split('VALUES')[1]?.includes('),');
             
             if (!isBulkInsert) {
-              const insertMatch = sql.match(/INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\((.*?)\)\s*VALUES\s*\((.*?)\)/i);
+              const insertMatch = sql.match(/INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/i);
               if (insertMatch) {
                 const table = insertMatch[1];
                 const columns = insertMatch[2];
