@@ -26,6 +26,13 @@ function initLocalDb(userDataPath) {
 
 function migrateSchemaIfNeeded() {
   try {
+    // Verificar si almacenes tiene created_by
+    const almacenesInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='almacenes'").get();
+    if (almacenesInfo && !almacenesInfo.sql.includes('created_by')) {
+      console.log('[SQLite] Agregando columna created_by a almacenes...');
+      db.prepare("ALTER TABLE almacenes ADD COLUMN created_by INTEGER").run();
+    }
+
     // Verificar si la tabla 'articulos' existe y tiene la FK con ON DELETE CASCADE
     const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='articulos'").get();
     if (tableInfo && !tableInfo.sql.includes('ON DELETE CASCADE')) {
@@ -63,6 +70,7 @@ function createSchema() {
       ubicacion TEXT,
       descripcion TEXT,
       estado TEXT DEFAULT 'Activo',
+      created_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );

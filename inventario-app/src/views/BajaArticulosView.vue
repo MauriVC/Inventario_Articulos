@@ -15,7 +15,7 @@
     <div class="mov-form-grid">
       <!-- Datos del Responsable -->
       <div class="card">
-        <div class="card-header"><h3>Datos del Responsable de Baja</h3></div>
+        <div class="card-header"><h3>Datos del Solicitante</h3></div>
         <div class="card-body">
           <div class="flex flex-col gap-4">
             <div class="form-group">

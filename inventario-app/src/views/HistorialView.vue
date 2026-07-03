@@ -116,7 +116,8 @@
           <div class="grid-2 mb-4">
             <div><span class="text-sm text-muted">Código</span><p class="font-semibold">{{ selectedMov.codigo }}</p></div>
             <div><span class="text-sm text-muted">Fecha</span><p class="font-medium">{{ new Date(selectedMov.fecha_movimiento).toLocaleString('es-ES') }}</p></div>
-            <div><span class="text-sm text-muted">{{ selectedMov.tipo === 'BAJA' ? 'Responsable' : 'Solicitante' }}</span><p class="font-medium">{{ selectedMov.solicitante_nombre || '—' }} <span v-if="selectedMov.solicitante_ci">(CI: {{ selectedMov.solicitante_ci }})</span></p></div>
+            <div><span class="text-sm text-muted">Solicitante</span><p class="font-medium">{{ selectedMov.solicitante_nombre || '—' }} <span v-if="selectedMov.solicitante_ci">(CI: {{ selectedMov.solicitante_ci }})</span></p></div>
+            <div><span class="text-sm text-muted">Responsable del Movimiento</span><p class="font-medium">{{ selectedMov.usuario_nombres }} {{ selectedMov.usuario_apellidos }}</p></div>
             <div v-if="selectedMov.tipo === 'BAJA'"><span class="text-sm text-muted">Motivo de Baja</span><p class="font-medium" style="color: var(--color-warning);">{{ selectedMov.motivo_baja || '—' }}</p></div>
             <div v-else><span class="text-sm text-muted">{{ selectedMov.tipo === 'ENTRADA' ? 'Procedencia' : 'Destino' }}</span><p class="font-medium">{{ selectedMov.destino_procedencia || '—' }}</p></div>
             <div><span class="text-sm text-muted">Almacén</span><p class="font-medium">{{ selectedMov.almacen_nombre }}</p></div>
@@ -338,18 +339,19 @@ function descargarPDF() {
   const isEntrada = mov.tipo === 'ENTRADA'
   
   doc.text(`Almacén: ${mov.almacen_nombre}`, 14, 50)
-  doc.text(`${isBaja ? 'Responsable' : 'Solicitante'}: ${mov.solicitante_nombre || '—'} ${mov.solicitante_ci ? '(CI: '+mov.solicitante_ci+')' : ''}`, 14, 56)
+  doc.text(`Solicitante: ${mov.solicitante_nombre || '—'} ${mov.solicitante_ci ? '(CI: '+mov.solicitante_ci+')' : ''}`, 14, 56)
+  doc.text(`Responsable (Sistema): ${mov.usuario_nombres} ${mov.usuario_apellidos}`, 14, 62)
   
   if (isBaja) {
-    doc.text(`Motivo de Baja: ${mov.motivo_baja || '—'}`, 14, 62)
+    doc.text(`Motivo de Baja: ${mov.motivo_baja || '—'}`, 14, 68)
   } else {
-    doc.text(`${isEntrada ? 'Procedencia' : 'Destino'}: ${mov.destino_procedencia || '—'}`, 14, 62)
+    doc.text(`${isEntrada ? 'Procedencia' : 'Destino'}: ${mov.destino_procedencia || '—'}`, 14, 68)
   }
   
-  doc.text(`Observación: ${mov.observacion || 'Ninguna'}`, 14, 68)
+  doc.text(`Observación: ${mov.observacion || 'Ninguna'}`, 14, 74)
   
   if (mov.paquete_nombre) {
-    doc.text(`Paquete: ${mov.paquete_nombre}`, 14, 74)
+    doc.text(`Paquete: ${mov.paquete_nombre}`, 14, 80)
   }
   
   // Table
@@ -374,7 +376,7 @@ function descargarPDF() {
   })
   
   autoTable(doc, {
-    startY: 82,
+    startY: 88,
     head: [tableColumn],
     body: tableRows,
     theme: 'grid',
@@ -399,7 +401,8 @@ function descargarExcel() {
     ["TIPO", mov.tipo],
     ["FECHA", new Date(mov.fecha_movimiento).toLocaleString('es-ES')],
     ["ALMACÉN", mov.almacen_nombre],
-    [isBaja ? 'RESPONSABLE' : 'SOLICITANTE', `${mov.solicitante_nombre || '—'} ${mov.solicitante_ci ? '(CI: '+mov.solicitante_ci+')' : ''}`]
+    ['SOLICITANTE', `${mov.solicitante_nombre || '—'} ${mov.solicitante_ci ? '(CI: '+mov.solicitante_ci+')' : ''}`],
+    ['RESPONSABLE (SISTEMA)', `${mov.usuario_nombres} ${mov.usuario_apellidos}`]
   ]
   
   if (isBaja) resumen.push(["MOTIVO DE BAJA", mov.motivo_baja || '—'])
@@ -501,12 +504,13 @@ async function descargarHistorialPDF() {
   doc.text(filterText, 14, 30)
   
   // Table
-  const tableColumn = ["Código", "Tipo", "Almacén", "Responsable/Solic.", "Destino/Proc.", "Fecha"]
+  const tableColumn = ["Código", "Tipo", "Almacén", "Solicitante", "Responsable", "Destino/Proc.", "Fecha"]
   const tableRows = data.map(m => [
     m.codigo,
     m.tipo,
     m.almacen_nombre,
     m.solicitante_nombre || '—',
+    `${m.usuario_nombres || ''} ${m.usuario_apellidos || ''}`.trim() || '—',
     m.destino_procedencia || m.motivo_baja || '—',
     new Date(m.fecha_movimiento).toLocaleString('es-ES')
   ])
@@ -552,7 +556,7 @@ async function descargarHistorialExcel() {
   resumen.push([])
   
   // Tabla
-  const tableHeader = ["Código", "Tipo", "Almacén", "Responsable / Solicitante", "CI", "Destino / Procedencia", "Observación", "Fecha"]
+  const tableHeader = ["Código", "Tipo", "Almacén", "Solicitante", "CI", "Responsable", "Destino / Procedencia", "Observación", "Fecha"]
   resumen.push(tableHeader)
   
   data.forEach(m => {
@@ -562,6 +566,7 @@ async function descargarHistorialExcel() {
       m.almacen_nombre,
       m.solicitante_nombre || '—',
       m.solicitante_ci || '—',
+      `${m.usuario_nombres || ''} ${m.usuario_apellidos || ''}`.trim() || '—',
       m.destino_procedencia || m.motivo_baja || '—',
       m.observacion || '—',
       new Date(m.fecha_movimiento).toLocaleString('es-ES')

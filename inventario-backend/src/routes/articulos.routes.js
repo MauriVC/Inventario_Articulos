@@ -29,12 +29,14 @@ async function articulosRoutes(fastify) {
              a.categoria_id, cat.nombre AS categoria_nombre,
              a.marca_id, mar.nombre AS marca_nombre,
              a.unidad_medida_id, um.nombre AS unidad_nombre, um.abreviatura AS unidad_abreviatura,
-             a.created_at
+             a.created_at,
+             CONCAT(u.nombres, ' ', u.apellidos) AS responsable_nombre
       FROM articulos a
       JOIN almacenes alm ON a.almacen_id = alm.id
       JOIN categorias cat ON a.categoria_id = cat.id
       LEFT JOIN marcas mar ON a.marca_id = mar.id
       JOIN unidad_medidas um ON a.unidad_medida_id = um.id
+      LEFT JOIN usuarios u ON a.created_by = u.id
       WHERE ${where}
       ORDER BY a.nombre
     `, params);

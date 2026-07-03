@@ -12,9 +12,11 @@ async function almacenesRoutes(fastify) {
 
     let query = `
       SELECT a.id, a.nombre, a.ubicacion, a.descripcion, a.estado, a.created_at,
-             COUNT(art.id) AS totalArticulos
+             COUNT(art.id) AS totalArticulos,
+             CONCAT(u.nombres, ' ', u.apellidos) AS responsable_nombre
       FROM almacenes a
       LEFT JOIN articulos art ON art.almacen_id = a.id
+      LEFT JOIN usuarios u ON a.created_by = u.id
     `;
     const params = [];
 
@@ -47,13 +49,14 @@ async function almacenesRoutes(fastify) {
   // POST /api/almacenes — Crear
   fastify.post('/', async (request, reply) => {
     const { nombre, ubicacion, descripcion } = request.body;
+    const userId = request.headers['x-user-id'] || null;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const [result] = await pool.query(
-      'INSERT INTO almacenes (nombre, ubicacion, descripcion) VALUES (?, ?, ?)',
-      [nombre, ubicacion || null, descripcion || null]
+      'INSERT INTO almacenes (nombre, ubicacion, descripcion, created_by) VALUES (?, ?, ?, ?)',
+      [nombre, ubicacion || null, descripcion || null, userId]
     );
-    return reply.code(201).send({ data: { id: result.insertId, nombre, ubicacion, descripcion } });
+    return reply.code(201).send({ data: { id: result.insertId, nombre, ubicacion, descripcion, created_by: userId } });
   });
 
   // PUT /api/almacenes/:id — Actualizar

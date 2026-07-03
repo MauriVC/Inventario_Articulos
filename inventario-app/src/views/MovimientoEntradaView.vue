@@ -13,17 +13,17 @@
     </div>
 
     <!-- Toggle Es Devolución -->
-    <div class="card mb-4" style="background: rgba(56, 161, 105, 0.05); border: 1px solid rgba(56, 161, 105, 0.2);">
-      <div class="card-body py-3 flex justify-between items-center">
+    <div class="card mb-4" style="background: rgba(56, 161, 105, 0.05); border: 1px solid rgba(56, 161, 105, 0.2); display: inline-block;">
+      <label class="card-body py-3 flex justify-between items-center gap-8 cursor-pointer" style="margin: 0;">
         <div>
-          <h4 class="font-semibold" style="color: var(--color-success);">¿Es una devolución?</h4>
-          <p class="text-sm text-muted">Active esta opción si el ingreso corresponde a material que fue prestado previamente.</p>
+          <h4 class="font-semibold" style="color: var(--color-success); margin: 0 0 4px 0;">¿Es una devolución?</h4>
+          <p class="text-sm text-muted m-0">Active esta opción si el ingreso corresponde a material que fue prestado previamente.</p>
         </div>
-        <label class="switch">
+        <div class="switch" style="pointer-events: none;">
           <input type="checkbox" v-model="esDevolucion" @change="handleDevolucionToggle">
           <span class="slider round"></span>
-        </label>
-      </div>
+        </div>
+      </label>
     </div>
 
     <div class="mov-form-grid">
@@ -188,7 +188,7 @@ const procedencia = ref('')
 const observacion = ref('')
 const articuloSearch = ref('')
 const saving = ref(false)
-const esDevolucion = ref(true)
+const esDevolucion = ref(false)
 const pendientesList = ref([])
 
 const items = ref([])

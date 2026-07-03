@@ -11,7 +11,8 @@ async function alterTable() {
   });
 
   try {
-    const [result] = await pool.query("ALTER TABLE movimientos ADD COLUMN es_devolucion BOOLEAN DEFAULT FALSE AFTER tipo;");
+    await pool.query("ALTER TABLE almacenes ADD COLUMN created_by INT DEFAULT NULL;");
+    await pool.query("ALTER TABLE almacenes ADD FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL;");
     console.log('Table altered successfully.');
   } catch (error) {
     if (error.code === 'ER_DUP_FIELDNAME') {

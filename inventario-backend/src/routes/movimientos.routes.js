@@ -42,10 +42,12 @@ async function movimientosRoutes(fastify) {
                m.destino_procedencia, m.motivo_baja, m.observacion,
                m.almacen_id, alm.nombre AS almacen_nombre,
                m.paquete_id, paq.nombre AS paquete_nombre,
+               u.nombres AS usuario_nombres, u.apellidos AS usuario_apellidos,
                (SELECT COUNT(*) FROM movimiento_detalles md WHERE md.movimiento_id = m.id) AS total_articulos
         FROM movimientos m
         JOIN almacenes alm ON m.almacen_id = alm.id
         LEFT JOIN paquetes paq ON m.paquete_id = paq.id
+        LEFT JOIN usuarios u ON m.usuario_id = u.id
         WHERE ${where}
         ORDER BY m.fecha_movimiento DESC
         LIMIT ? OFFSET ?
@@ -191,10 +193,12 @@ async function movimientosRoutes(fastify) {
       [detalles]
     ] = await Promise.all([
       pool.query(`
-        SELECT m.*, alm.nombre AS almacen_nombre, paq.nombre AS paquete_nombre
+        SELECT m.*, alm.nombre AS almacen_nombre, paq.nombre AS paquete_nombre,
+               u.nombres AS usuario_nombres, u.apellidos AS usuario_apellidos
         FROM movimientos m
         JOIN almacenes alm ON m.almacen_id = alm.id
         LEFT JOIN paquetes paq ON m.paquete_id = paq.id
+        LEFT JOIN usuarios u ON m.usuario_id = u.id
         WHERE m.id = ?
       `, [id]),
       pool.query(`

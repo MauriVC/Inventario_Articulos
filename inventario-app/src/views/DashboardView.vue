@@ -71,9 +71,9 @@
                 <div class="chart-bars">
                   <div class="chart-bar-group" v-for="item in chartData" :key="item.label">
                     <div class="chart-bar-container">
-                      <div class="chart-bar bar-entrada" :style="{ height: maxChartValue ? (item.entrada / maxChartValue * 100) + '%' : '0%' }" :title="'Entradas: ' + item.entrada"></div>
-                      <div class="chart-bar bar-salida" :style="{ height: maxChartValue ? (item.salida / maxChartValue * 100) + '%' : '0%' }" :title="'Salidas: ' + item.salida"></div>
-                      <div class="chart-bar bar-baja" :style="{ height: maxChartValue ? ((item.baja || 0) / maxChartValue * 100) + '%' : '0%' }" :title="'Bajas: ' + (item.baja || 0)"></div>
+                      <div class="chart-bar bar-entrada" :style="{ height: maxChartValue ? (item.entrada / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nEntradas: ${item.entrada}`"></div>
+                      <div class="chart-bar bar-salida" :style="{ height: maxChartValue ? (item.salida / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nSalidas: ${item.salida}`"></div>
+                      <div class="chart-bar bar-baja" :style="{ height: maxChartValue ? ((item.baja || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nBajas: ${item.baja || 0}`"></div>
                     </div>
                     <span class="chart-label">{{ item.label }}</span>
                   </div>
@@ -366,6 +366,12 @@ const pieChartBackground = computed(() => {
   justify-content: center;
   align-items: center;
   margin-top: 10px;
+  animation: popIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .pie-chart {
@@ -499,6 +505,13 @@ const pieChartBackground = computed(() => {
   cursor: pointer;
   flex: 1;
   max-width: 14px;
+  transform-origin: bottom;
+  animation: growBar 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes growBar {
+  0% { transform: scaleY(0); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 1; }
 }
 .chart-bar:hover {
   opacity: 0.8;
