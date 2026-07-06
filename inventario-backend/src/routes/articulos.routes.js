@@ -4,6 +4,35 @@
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
 
+function obtenerPrimerasTresLetras(texto) {
+  if (!texto || texto.trim() === '') return '';
+  texto = texto.trim().toUpperCase();
+  const letrasMatch = texto.match(/[A-ZÁÉÍÓÚÑ]/gu);
+  if (!letrasMatch) return '';
+  let letras = letrasMatch.slice(0, 3);
+  while (letras.length < 3) letras.push('X');
+  return letras.join('');
+}
+
+function generarPalabraCodigo(nombre, categoria) {
+  const NOMBRES_ESPECIFICOS = {
+    'CARTA': 'CAR',
+    'MEDIO OFICIO': 'MEOF',
+    'OFICIO': 'OF',
+    'PAQUETE': 'PACK'
+  };
+  const nombreUpper = nombre.trim().toUpperCase();
+  for (const [palabra, codigo] of Object.entries(NOMBRES_ESPECIFICOS)) {
+    if (nombreUpper.includes(palabra)) return codigo;
+  }
+  const letrasNombre = obtenerPrimerasTresLetras(nombre);
+  if (categoria) {
+    const letrasCategoria = obtenerPrimerasTresLetras(categoria);
+    return letrasNombre + letrasCategoria;
+  }
+  return letrasNombre;
+}
+
 async function articulosRoutes(fastify) {
 
   // GET /api/articulos — Listar artículos con sus variantes y atributos
@@ -132,20 +161,28 @@ async function articulosRoutes(fastify) {
     try {
       await conn.beginTransaction();
 
-      // Generar código auto-incremental ART-YYYY-XXXX
+      // Generar código auto-incremental inteligente
       let finalCodigo = codigo;
       if (!finalCodigo || !finalCodigo.trim()) {
-        const year = new Date().getFullYear();
-        const prefix = `ART-${year}`;
-        const [lastCode] = await conn.query(
-          "SELECT codigo FROM articulos WHERE codigo LIKE ? ORDER BY id DESC LIMIT 1",
+        const [[categoria]] = await conn.query('SELECT nombre FROM categorias WHERE id = ?', [categoria_id]);
+        const categoriaNombre = categoria ? categoria.nombre : '';
+        
+        const prefix = generarPalabraCodigo(nombre, categoriaNombre);
+        
+        const [existentes] = await conn.query(
+          "SELECT codigo FROM articulos WHERE codigo LIKE ?",
           [`${prefix}-%`]
         );
+        
         let nextNum = 1;
-        if (lastCode.length > 0) {
-          const parts = lastCode[0].codigo.split('-');
-          nextNum = parseInt(parts[2], 10) + 1;
+        if (existentes.length > 0) {
+          const numeros = existentes.map(row => {
+            const parts = row.codigo.split('-');
+            return parseInt(parts[parts.length - 1], 10) || 0;
+          });
+          nextNum = Math.max(...numeros) + 1;
         }
+        
         finalCodigo = `${prefix}-${String(nextNum).padStart(4, '0')}`;
       }
 
