@@ -74,6 +74,9 @@
                       <div class="chart-bar bar-entrada" :style="{ height: maxChartValue ? (item.entrada / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nEntradas: ${item.entrada}`"></div>
                       <div class="chart-bar bar-salida" :style="{ height: maxChartValue ? (item.salida / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nSalidas: ${item.salida}`"></div>
                       <div class="chart-bar bar-baja" :style="{ height: maxChartValue ? ((item.baja || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nBajas: ${item.baja || 0}`"></div>
+                      <div class="chart-bar bar-registro" :style="{ height: maxChartValue ? ((item.registro || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nRegistros: ${item.registro || 0}`"></div>
+                      <div class="chart-bar bar-edicion" :style="{ height: maxChartValue ? ((item.edicion || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nEdiciones: ${item.edicion || 0}`"></div>
+                      <div class="chart-bar bar-borrado" :style="{ height: maxChartValue ? ((item.borrado || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nBorrados: ${item.borrado || 0}`"></div>
                     </div>
                     <span class="chart-label">{{ item.label }}</span>
                   </div>
@@ -83,6 +86,9 @@
                 <span class="chart-legend-item"><span class="chart-legend-dot dot-entrada"></span> <span class="text-sm font-medium text-gray-600">Entradas</span></span>
                 <span class="chart-legend-item"><span class="chart-legend-dot dot-salida"></span> <span class="text-sm font-medium text-gray-600">Salidas</span></span>
                 <span class="chart-legend-item"><span class="chart-legend-dot dot-baja"></span> <span class="text-sm font-medium text-gray-600">Bajas</span></span>
+                <span class="chart-legend-item"><span class="chart-legend-dot dot-registro"></span> <span class="text-sm font-medium text-gray-600">Registros</span></span>
+                <span class="chart-legend-item"><span class="chart-legend-dot dot-edición"></span> <span class="text-sm font-medium text-gray-600">Ediciones</span></span>
+                <span class="chart-legend-item"><span class="chart-legend-dot dot-borrado"></span> <span class="text-sm font-medium text-gray-600">Borrados</span></span>
               </div>
             </div>
           </div>
@@ -167,7 +173,7 @@
       <!-- Recent Movements Table -->
       <div class="card">
         <div class="card-header border-b-0">
-          <h3 class="font-bold text-gray-800 text-lg">Lista de Movimientos Recientes</h3>
+          <h3 class="font-bold text-gray-800 text-lg">Actividad Reciente</h3>
           <router-link to="/historial" class="btn btn-ghost btn-sm text-gray-500 hover:text-gray-800">
             Ver todo
             <ChevronRight :size="16" />
@@ -178,31 +184,33 @@
             <table class="table custom-table">
               <thead>
                 <tr>
-                  <th>Usuario / Solicitante</th>
-                  <th>Código</th>
-                  <th>Tipo</th>
-                  <th>Almacén</th>
-                  <th>Destino / Proc.</th>
-                  <th>Artículos</th>
                   <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Módulo</th>
+                  <th>Detalle / Descripción</th>
+                  <th v-if="false"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="mov in recentMovements" :key="mov.codigo">
-                  <td class="font-medium text-gray-700">{{ mov.solicitante }}</td>
-                  <td class="text-gray-500">{{ mov.codigo }}</td>
+                <tr v-for="mov in recentMovements" :key="mov.origen + mov.codigo + mov.fecha">
+                  <td class="text-muted text-sm">{{ new Date(mov.fecha).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' }) }}</td>
                   <td>
                     <span class="badge" :class="tipoBadgeClass(mov.tipo)">
                       {{ mov.tipo }}
                     </span>
                   </td>
-                  <td class="text-gray-600">{{ mov.almacen }}</td>
-                  <td class="text-gray-600">{{ mov.destino }}</td>
-                  <td class="text-center font-medium">{{ mov.articulos }}</td>
-                  <td class="text-muted text-sm">{{ new Date(mov.fecha).toLocaleString('es-ES') }}</td>
+                  <td class="text-gray-500 font-medium">{{ mov.modulo }}</td>
+                  <td class="text-gray-700">
+                    <div v-if="mov.origen === 'movimiento'" class="text-sm">
+                      <span class="font-semibold">{{ mov.codigo }}</span> | {{ mov.almacen }} <span v-if="mov.destino !== '—'">→ {{ mov.destino }}</span> <span class="text-muted">({{ mov.articulos }} art.)</span>
+                    </div>
+                    <div v-else class="text-sm" style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" :title="mov.solicitante">
+                      {{ mov.solicitante }}
+                    </div>
+                  </td>
                 </tr>
                 <tr v-if="recentMovements.length === 0">
-                  <td colspan="7" class="text-center p-4 text-muted">No hay movimientos recientes.</td>
+                  <td colspan="4" class="text-center p-4 text-muted">No hay actividad reciente.</td>
                 </tr>
               </tbody>
             </table>
@@ -224,7 +232,11 @@ import { api } from '@/api'
 function tipoBadgeClass(tipo) {
   if (tipo === 'SALIDA') return 'badge-danger'
   if (tipo === 'ENTRADA') return 'badge-success'
-  return 'badge-warning'
+  if (tipo === 'BAJA') return 'badge-warning'
+  if (tipo === 'REGISTRO') return 'badge-info'
+  if (tipo === 'EDICIÓN') return 'badge-purple'
+  if (tipo === 'BORRADO') return 'badge-dark'
+  return 'badge-primary'
 }
 
 const loading = ref(true)
@@ -274,7 +286,7 @@ async function loadDashboardData() {
 
 const maxChartValue = computed(() => {
   if (!chartData.value.length) return 0
-  return Math.max(...chartData.value.map(d => Math.max(d.entrada, d.salida, d.baja || 0)))
+  return Math.max(...chartData.value.map(d => Math.max(d.entrada, d.salida, d.baja || 0, d.registro || 0, d.edicion || 0, d.borrado || 0)))
 })
 
 const totalMovimientosMes = computed(() => {
@@ -304,7 +316,10 @@ const pieChartBackground = computed(() => {
   const colors = {
     'ENTRADA': 'var(--color-success)',
     'SALIDA': 'var(--color-danger)',
-    'BAJA': 'var(--color-warning)'
+    'BAJA': 'var(--color-warning)',
+    'REGISTRO': '#3182ce',
+    'EDICIÓN': '#805ad5',
+    'BORRADO': '#4a5568'
   };
 
   distribucionMes.value.forEach((item, index) => {
@@ -525,6 +540,15 @@ const pieChartBackground = computed(() => {
 .bar-baja {
   background: var(--color-warning);
 }
+.bar-registro {
+  background: #3182ce;
+}
+.bar-edicion {
+  background: #805ad5;
+}
+.bar-borrado {
+  background: #4a5568;
+}
 .chart-label {
   font-size: var(--font-size-xs);
   color: var(--color-gray-400);
@@ -550,6 +574,9 @@ const pieChartBackground = computed(() => {
 .dot-entrada { border-color: var(--color-success); }
 .dot-salida { border-color: var(--color-danger); }
 .dot-baja { border-color: var(--color-warning); }
+.dot-registro { border-color: #3182ce; }
+.dot-edición { border-color: #805ad5; }
+.dot-borrado { border-color: #4a5568; }
 
 /* Quick Actions */
 .quick-actions {
@@ -674,5 +701,19 @@ const pieChartBackground = computed(() => {
 .table-scroll::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 4px;
+}
+
+/* Nuevos badges */
+.badge-info {
+  background: rgba(49, 130, 206, 0.15);
+  color: #3182ce;
+}
+.badge-purple {
+  background: rgba(128, 90, 213, 0.15);
+  color: #805ad5;
+}
+.badge-dark {
+  background: rgba(74, 85, 104, 0.15);
+  color: #4a5568;
 }
 </style>

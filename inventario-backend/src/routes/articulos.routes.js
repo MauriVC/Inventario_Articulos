@@ -2,6 +2,7 @@
  * Rutas CRUD — Artículos (con items/variantes por color y atributos)
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
 
 async function articulosRoutes(fastify) {
 
@@ -167,6 +168,8 @@ async function articulosRoutes(fastify) {
       }
 
       await conn.commit();
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Artículo', descripcion: `Se registró el artículo "${nombre}" (${finalCodigo})`, usuario_id: userId, referencia_id: articuloId });
       return reply.code(201).send({ data: { id: articuloId, nombre } });
     } catch (err) {
       await conn.rollback();
@@ -217,6 +220,8 @@ async function articulosRoutes(fastify) {
       }
 
       await conn.commit();
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Artículo', descripcion: `Se editó el artículo "${nombre}"`, usuario_id: userId, referencia_id: Number(id) });
       return { data: { id: Number(id), nombre } };
     } catch (err) {
       await conn.rollback();
@@ -255,8 +260,11 @@ async function articulosRoutes(fastify) {
 
   // DELETE /api/articulos/:id
   fastify.delete('/:id', async (request, reply) => {
+    const [[art]] = await pool.query('SELECT nombre, codigo FROM articulos WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM articulos WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Artículo', descripcion: `Se eliminó el artículo "${art ? art.nombre : 'ID:'+request.params.id}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
     return { message: 'Artículo eliminado' };
   });
 }

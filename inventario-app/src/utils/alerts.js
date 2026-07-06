@@ -1,11 +1,22 @@
 import Swal from 'sweetalert2';
 
+const customClassConfig = {
+  popup: 'swal-custom-popup',
+  title: 'swal-custom-title',
+  htmlContainer: 'swal-custom-text',
+  actions: 'swal-custom-actions'
+};
+
 export const showSuccess = (message) => {
   return Swal.fire({
     icon: 'success',
     title: 'Éxito',
     text: message,
-    confirmButtonColor: '#198754',
+    buttonsStyling: false,
+    customClass: {
+      ...customClassConfig,
+      confirmButton: 'btn btn-success'
+    }
   });
 };
 
@@ -14,7 +25,11 @@ export const showError = (message) => {
     icon: 'error',
     title: 'Error',
     text: message,
-    confirmButtonColor: '#dc3545',
+    buttonsStyling: false,
+    customClass: {
+      ...customClassConfig,
+      confirmButton: 'btn btn-danger'
+    }
   });
 };
 
@@ -23,20 +38,28 @@ export const showWarning = (message) => {
     icon: 'warning',
     title: 'Atención',
     text: message,
-    confirmButtonColor: '#ffc107',
+    buttonsStyling: false,
+    customClass: {
+      ...customClassConfig,
+      confirmButton: 'btn btn-primary'
+    }
   });
 };
 
-export const confirmAction = async (title, text, confirmButtonText = 'Aceptar', confirmButtonColor = '#dc3545') => {
+export const confirmAction = async (title, text, confirmButtonText = 'Aceptar', confirmButtonClass = 'btn-danger') => {
   const result = await Swal.fire({
     title: title,
     text: text,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonColor: confirmButtonColor,
-    cancelButtonColor: '#6c757d',
+    buttonsStyling: false,
     confirmButtonText: confirmButtonText,
-    cancelButtonText: 'Cancelar'
+    cancelButtonText: 'Cancelar',
+    customClass: {
+      ...customClassConfig,
+      confirmButton: `btn ${confirmButtonClass}`,
+      cancelButton: 'btn btn-secondary'
+    }
   });
   return result.isConfirmed;
 };

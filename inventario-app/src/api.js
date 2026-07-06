@@ -108,6 +108,14 @@ export const api = {
   getMovimiento: (id) => apiFetch(`/movimientos/${id}`),
   createMovimiento: (data) => apiFetch('/movimientos', { method: 'POST', body: data }),
   getSalidasConDevolucion: () => apiFetch('/movimientos/salidas-con-devolucion'),
+  
+  // Actividades (Historial Unificado)
+  getActividades: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/actividad${query ? '?' + query : ''}`);
+  },
+  getActividad: (origen, id) => apiFetch(`/actividad/${origen}/${id}`),
+
   // Auth
   login: (carnet, contrasena) => apiFetch('/auth/login', { method: 'POST', body: { carnet, contrasena } }),
 

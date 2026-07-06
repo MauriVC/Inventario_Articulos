@@ -3,6 +3,7 @@
  * Ej: Atributo "Acabado" → Datos: "Anillado", "Empastado"...
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
 
 async function atributosRoutes(fastify) {
 
@@ -33,31 +34,52 @@ async function atributosRoutes(fastify) {
     const { nombre, datos } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
-    const [result] = await pool.query('INSERT INTO atributos (nombre) VALUES (?)', [nombre]);
-    const atributoId = result.insertId;
+    try {
+      const [result] = await pool.query('INSERT INTO atributos (nombre) VALUES (?)', [nombre]);
+      const atributoId = result.insertId;
 
-    // Insertar datos si vienen
-    if (datos && Array.isArray(datos) && datos.length > 0) {
-      const values = datos.map(d => [atributoId, d]);
-      await pool.query('INSERT INTO datos (atributo_id, nombre) VALUES ?', [values]);
+      // Insertar datos si vienen
+      if (datos && Array.isArray(datos) && datos.length > 0) {
+        const values = datos.map(d => [atributoId, d]);
+        await pool.query('INSERT INTO datos (atributo_id, nombre) VALUES ?', [values]);
+      }
+
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Atributo', descripcion: `Se registró el atributo "${nombre}"`, usuario_id: userId, referencia_id: atributoId });
+      return reply.code(201).send({ data: { id: atributoId, nombre } });
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe un atributo con este nombre' });
+      }
+      throw err;
     }
-
-    return reply.code(201).send({ data: { id: atributoId, nombre } });
   });
 
   // PUT /api/atributos/:id — Renombrar atributo
   fastify.put('/:id', async (request, reply) => {
     const { nombre } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
-    const [result] = await pool.query('UPDATE atributos SET nombre = ? WHERE id = ?', [nombre, request.params.id]);
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Atributo no encontrado' });
-    return { data: { id: Number(request.params.id), nombre } };
+    try {
+      const [result] = await pool.query('UPDATE atributos SET nombre = ? WHERE id = ?', [nombre, request.params.id]);
+      if (result.affectedRows === 0) return reply.code(404).send({ error: 'Atributo no encontrado' });
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Atributo', descripcion: `Se editó el atributo "${nombre}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
+      return { data: { id: Number(request.params.id), nombre } };
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe un atributo con este nombre' });
+      }
+      throw err;
+    }
   });
 
   // DELETE /api/atributos/:id — Elimina atributo y sus datos en cascada
   fastify.delete('/:id', async (request, reply) => {
+    const [[attr]] = await pool.query('SELECT nombre FROM atributos WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM atributos WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Atributo no encontrado' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Atributo', descripcion: `Se eliminó el atributo "${attr ? attr.nombre : 'ID:'+request.params.id}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
     return { message: 'Atributo y sus datos eliminados' };
   });
 
@@ -69,8 +91,15 @@ async function atributosRoutes(fastify) {
     const { nombre } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre del dato es obligatorio' });
 
-    const [result] = await pool.query('INSERT INTO datos (atributo_id, nombre) VALUES (?, ?)', [id, nombre]);
-    return reply.code(201).send({ data: { id: result.insertId, atributo_id: Number(id), nombre } });
+    try {
+      const [result] = await pool.query('INSERT INTO datos (atributo_id, nombre) VALUES (?, ?)', [id, nombre]);
+      return reply.code(201).send({ data: { id: result.insertId, atributo_id: Number(id), nombre } });
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe este dato en el atributo' });
+      }
+      throw err;
+    }
   });
 
   // DELETE /api/atributos/:id/datos/:datoId — Eliminar un dato

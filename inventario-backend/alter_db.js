@@ -11,14 +11,28 @@ async function alterTable() {
   });
 
   try {
-    await pool.query("ALTER TABLE almacenes ADD COLUMN created_by INT DEFAULT NULL;");
-    await pool.query("ALTER TABLE almacenes ADD FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL;");
-    console.log('Table altered successfully.');
+    // Crear tabla de log de actividades del sistema
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS actividad_log (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        tipo          VARCHAR(20) NOT NULL,
+        modulo        VARCHAR(50) NOT NULL,
+        descripcion   VARCHAR(500) NOT NULL,
+        usuario_id    INT DEFAULT NULL,
+        referencia_id INT DEFAULT NULL,
+        created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_tipo (tipo),
+        INDEX idx_modulo (modulo),
+        INDEX idx_fecha (created_at),
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+    console.log('✓ Tabla actividad_log creada correctamente.');
   } catch (error) {
-    if (error.code === 'ER_DUP_FIELDNAME') {
-      console.log('Column already exists.');
+    if (error.code === 'ER_TABLE_EXISTS_ERROR') {
+      console.log('La tabla actividad_log ya existe.');
     } else {
-      console.error('Error altering table:', error);
+      console.error('Error:', error.message);
     }
   } finally {
     await pool.end();

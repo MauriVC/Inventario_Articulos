@@ -2,6 +2,7 @@
  * Rutas CRUD — Usuarios
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
 
 async function usuariosRoutes(fastify) {
 
@@ -83,6 +84,8 @@ async function usuariosRoutes(fastify) {
       }
 
       await connection.commit();
+      const creatorId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Usuario', descripcion: `Se registró el usuario "${nombres} ${apellidos}" (${rol || 'Usuario'})`, usuario_id: creatorId, referencia_id: newUserId });
       return reply.code(201).send({ data: { id: newUserId, carnet, nombres, apellidos, rol: rol || 'Usuario' } });
     } catch (error) {
       await connection.rollback();
@@ -132,6 +135,8 @@ async function usuariosRoutes(fastify) {
       }
 
       await connection.commit();
+      const editorId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Usuario', descripcion: `Se editó el usuario "${nombres} ${apellidos}"`, usuario_id: editorId, referencia_id: Number(request.params.id) });
       return { data: { id: Number(request.params.id), carnet, nombres, apellidos, rol, estado } };
     } catch (error) {
       await connection.rollback();
@@ -143,8 +148,11 @@ async function usuariosRoutes(fastify) {
 
   // DELETE /api/usuarios/:id
   fastify.delete('/:id', async (request, reply) => {
+    const [[user]] = await pool.query('SELECT nombres, apellidos FROM usuarios WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM usuarios WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Usuario no encontrado' });
+    const deleterId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Usuario', descripcion: `Se eliminó el usuario "${user ? user.nombres+' '+user.apellidos : 'ID:'+request.params.id}"`, usuario_id: deleterId, referencia_id: Number(request.params.id) });
     return { message: 'Usuario eliminado' };
   });
 }

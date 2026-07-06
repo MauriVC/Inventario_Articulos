@@ -22,17 +22,17 @@
               <label class="form-label">Carnet de Identidad *</label>
               <div class="form-input-icon">
                 <Search :size="16" />
-                <input v-model="responsableCi" type="text" class="form-input" placeholder="Buscar por carnet..." @input="buscarSolicitante" />
+                <input v-model="responsableCi" type="text" class="form-input" placeholder="Buscar por carnet..." @input="responsableCi = responsableCi.replace(/[^0-9]/g, ''); buscarSolicitante()" />
               </div>
               <span class="text-xs text-muted" v-if="solicitanteEncontrado">✓ Solicitante encontrado, datos autocompletados</span>
             </div>
             <div class="form-group">
               <label class="form-label">Nombre Completo *</label>
-              <input v-model="responsable" type="text" class="form-input" placeholder="Nombre y apellidos" />
+              <input v-model="responsable" type="text" class="form-input" placeholder="Nombre y apellidos" @input="responsable = responsable.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Teléfono</label>
-              <input v-model="responsableTelefono" type="text" class="form-input" placeholder="Número de teléfono" />
+              <input v-model="responsableTelefono" type="text" class="form-input" placeholder="Número de teléfono" @input="responsableTelefono = responsableTelefono.replace(/[^0-9]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Motivo Principal *</label>
@@ -161,7 +161,7 @@
     <!-- Footer Actions -->
     <div class="form-actions mt-6">
       <router-link to="/" class="btn btn-secondary">Cancelar</router-link>
-      <button class="btn btn-warning btn-lg" :disabled="items.length === 0 || !selectedAlmacen || !motivoBaja || !responsable || saving" @click="registrarBaja">
+      <button class="btn btn-warning btn-lg" :disabled="saving" @click="registrarBaja">
         <PackageMinus :size="18" />
         {{ saving ? 'Registrando...' : 'Confirmar Baja' }}
       </button>
@@ -205,10 +205,6 @@ onMounted(async () => {
   try {
     const resAlm = await api.getAlmacenes()
     almacenes.value = resAlm.data.filter(a => a.estado === 'Activo')
-    if (almacenes.value.length > 0) {
-      selectedAlmacen.value = almacenes.value[0].id
-      await loadAlmacenData()
-    }
   } catch (error) {
     console.error("Error cargando almacenes:", error)
   }
@@ -304,7 +300,14 @@ function addArticulo(a) {
 }
 
 async function registrarBaja() {
-  if (items.value.length === 0 || !selectedAlmacen.value) return
+  if (!selectedAlmacen.value) {
+    showWarning("Primero debe seleccionar un almacén para registrar el movimiento.")
+    return
+  }
+  if (items.value.length === 0) {
+    showWarning("Debe agregar al menos un artículo para dar de baja.")
+    return
+  }
   if (!motivoBaja.value || !responsable.value || !responsableCi.value) {
     showWarning("Por favor, complete el carnet de identidad, el motivo de baja y el responsable.")
     return

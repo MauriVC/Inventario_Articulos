@@ -36,17 +36,17 @@
               <label class="form-label">Carnet de Identidad *</label>
               <div class="form-input-icon">
                 <Search :size="16" />
-                <input v-model="solicitante.carnet" type="text" class="form-input" placeholder="Buscar por carnet..." @input="buscarSolicitante" />
+                <input v-model="solicitante.carnet" type="text" class="form-input" placeholder="Buscar por carnet..." @input="solicitante.carnet = solicitante.carnet.replace(/[^0-9]/g, ''); buscarSolicitante()" />
               </div>
               <span class="text-xs text-muted" v-if="solicitanteEncontrado">✓ Solicitante encontrado, datos autocompletados</span>
             </div>
             <div class="form-group">
               <label class="form-label">Nombre Completo *</label>
-              <input v-model="solicitante.nombre" type="text" class="form-input" placeholder="Nombre y apellidos" />
+              <input v-model="solicitante.nombre" type="text" class="form-input" placeholder="Nombre y apellidos" @input="solicitante.nombre = solicitante.nombre.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Teléfono</label>
-              <input v-model="solicitante.telefono" type="text" class="form-input" placeholder="Número de teléfono" />
+              <input v-model="solicitante.telefono" type="text" class="form-input" placeholder="Número de teléfono" @input="solicitante.telefono = solicitante.telefono.replace(/[^0-9]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Procedencia de los materiales *</label>
@@ -162,7 +162,7 @@
     <!-- Footer Actions -->
     <div class="form-actions mt-6">
       <router-link to="/" class="btn btn-secondary">Cancelar</router-link>
-      <button class="btn btn-success btn-lg" :disabled="items.length === 0 || !selectedAlmacen || saving" @click="registrarEntrada">
+      <button class="btn btn-success btn-lg" :disabled="saving" @click="registrarEntrada">
         <ArrowDownToLine :size="18" />
         {{ saving ? 'Registrando...' : 'Registrar Entrada' }}
       </button>
@@ -206,10 +206,6 @@ onMounted(async () => {
   try {
     const resAlm = await api.getAlmacenes()
     almacenes.value = resAlm.data.filter(a => a.estado === 'Activo')
-    if (almacenes.value.length > 0) {
-      selectedAlmacen.value = almacenes.value[0].id
-      await loadAlmacenData()
-    }
     
     if (esDevolucion.value) {
       await cargarPendientes();
@@ -339,7 +335,14 @@ function addArticulo(a) {
 }
 
 async function registrarEntrada() {
-  if (items.value.length === 0 || !selectedAlmacen.value) return
+  if (!selectedAlmacen.value) {
+    showWarning("Primero debe seleccionar un almacén para registrar el movimiento.")
+    return
+  }
+  if (items.value.length === 0) {
+    showWarning("Debe agregar al menos un artículo para el ingreso.")
+    return
+  }
   if (!solicitante.value.carnet || !solicitante.value.nombre || !procedencia.value) {
     showWarning("Por favor, complete los campos obligatorios del solicitante y procedencia.")
     return

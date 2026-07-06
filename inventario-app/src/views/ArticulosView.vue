@@ -250,6 +250,7 @@
             <div class="form-group">
               <label class="form-label">Almacén *</label>
               <select v-model="form.almacen_id" class="form-select">
+                <option value="">Seleccione un almacén...</option>
                 <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
               </select>
             </div>
@@ -390,8 +391,8 @@ const articulos = ref([])
 
 // Form data
 const form = ref({
-  almacen_id: null,
-  categoria_id: null,
+  almacen_id: '',
+  categoria_id: '',
   marca_id: null,
   unidad_medida_id: null,
   codigo: '',
@@ -568,8 +569,8 @@ async function openModal(id = null) {
   } else {
     editingArticulo.value = null
     form.value = {
-      almacen_id: almacenes.value.length > 0 ? almacenes.value[0].id : null,
-      categoria_id: categorias.value.length > 0 ? categorias.value[0].id : null,
+      almacen_id: '',
+      categoria_id: categorias.value.length > 0 ? categorias.value[0].id : '',
       marca_id: null,
       unidad_medida_id: unidades.value.length > 0 ? unidades.value[0].id : null,
       codigo: '',
@@ -582,6 +583,11 @@ async function openModal(id = null) {
 
 async function guardarArticulo() {
   formError.value = ''
+
+  if (!form.value.almacen_id) {
+    formError.value = 'Primero debe seleccionar un almacén para registrar el artículo'
+    return
+  }
 
   if (!form.value.nombre.trim()) {
     formError.value = 'El nombre del artículo es obligatorio'
@@ -709,6 +715,9 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  max-height: 120px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
 }
 .dato-asignado {
   display: inline-flex;
@@ -738,6 +747,9 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--space-3);
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
 }
 .variant-color-option {
   display: flex;

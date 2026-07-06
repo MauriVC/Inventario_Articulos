@@ -84,21 +84,21 @@
             <div class="grid-2 mb-4">
               <div class="form-group">
                 <label class="form-label">Carnet *</label>
-                <input type="text" v-model="form.carnet" class="form-input" placeholder="Carnet de identidad" required />
+                <input type="text" v-model="form.carnet" class="form-input" placeholder="Carnet de identidad" required @input="form.carnet = form.carnet.replace(/[^0-9]/g, '')" />
               </div>
               <div class="form-group">
                 <label class="form-label">Teléfono</label>
-                <input type="text" v-model="form.telefono" class="form-input" placeholder="Número de teléfono" />
+                <input type="text" v-model="form.telefono" class="form-input" placeholder="Número de teléfono" @input="form.telefono = form.telefono.replace(/[^0-9]/g, '')" />
               </div>
             </div>
             <div class="grid-2 mb-4">
               <div class="form-group">
                 <label class="form-label">Nombres *</label>
-                <input type="text" v-model="form.nombres" class="form-input" placeholder="Nombres" required />
+                <input type="text" v-model="form.nombres" class="form-input" placeholder="Nombres" required @input="form.nombres = form.nombres.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
               </div>
               <div class="form-group">
                 <label class="form-label">Apellidos *</label>
-                <input type="text" v-model="form.apellidos" class="form-input" placeholder="Apellidos" required />
+                <input type="text" v-model="form.apellidos" class="form-input" placeholder="Apellidos" required @input="form.apellidos = form.apellidos.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
               </div>
             </div>
             <div class="grid-2 mb-4">
