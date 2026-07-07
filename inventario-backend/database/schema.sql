@@ -29,8 +29,10 @@ CREATE TABLE IF NOT EXISTS almacenes (
   ubicacion     VARCHAR(255),
   descripcion   TEXT,
   estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
+  created_by    INT DEFAULT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
@@ -312,3 +314,4 @@ INSERT INTO datos (atributo_id, nombre) VALUES
   (3, 'Rayada'),
   (3, 'Punteada'),
   (3, 'Milimetrada');
+
