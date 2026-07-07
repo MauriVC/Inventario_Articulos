@@ -314,4 +314,3 @@ INSERT INTO datos (atributo_id, nombre) VALUES
   (3, 'Rayada'),
   (3, 'Punteada'),
   (3, 'Milimetrada');
-
