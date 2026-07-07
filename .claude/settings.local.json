@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//tmp/pw-test/**)",
-      "Bash(node test2.js)"
-    ]
-  }
-}

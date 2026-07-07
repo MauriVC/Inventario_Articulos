@@ -2,6 +2,7 @@
  * Rutas CRUD — Marcas
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
 
 async function marcasRoutes(fastify) {
 
@@ -19,21 +20,42 @@ async function marcasRoutes(fastify) {
   fastify.post('/', async (request, reply) => {
     const { nombre, descripcion } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
-    const [result] = await pool.query('INSERT INTO marcas (nombre, descripcion) VALUES (?, ?)', [nombre, descripcion || null]);
-    return reply.code(201).send({ data: { id: result.insertId, nombre, descripcion } });
+    try {
+      const [result] = await pool.query('INSERT INTO marcas (nombre, descripcion) VALUES (?, ?)', [nombre, descripcion || null]);
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Marca', descripcion: `Se registró la marca "${nombre}"`, usuario_id: userId, referencia_id: result.insertId });
+      return reply.code(201).send({ data: { id: result.insertId, nombre, descripcion } });
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe una marca con este nombre' });
+      }
+      throw err;
+    }
   });
 
   fastify.put('/:id', async (request, reply) => {
     const { nombre, descripcion, estado } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
-    const [result] = await pool.query('UPDATE marcas SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?', [nombre, descripcion || null, estado || 'Activo', request.params.id]);
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Marca no encontrada' });
-    return { data: { id: Number(request.params.id), nombre, descripcion, estado } };
+    try {
+      const [result] = await pool.query('UPDATE marcas SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?', [nombre, descripcion || null, estado || 'Activo', request.params.id]);
+      if (result.affectedRows === 0) return reply.code(404).send({ error: 'Marca no encontrada' });
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Marca', descripcion: `Se editó la marca "${nombre}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
+      return { data: { id: Number(request.params.id), nombre, descripcion, estado } };
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe una marca con este nombre' });
+      }
+      throw err;
+    }
   });
 
   fastify.delete('/:id', async (request, reply) => {
+    const [[marca]] = await pool.query('SELECT nombre FROM marcas WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM marcas WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Marca no encontrada' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Marca', descripcion: `Se eliminó la marca "${marca ? marca.nombre : 'ID:'+request.params.id}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
     return { message: 'Marca eliminada' };
   });
 }

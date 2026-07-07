@@ -30,23 +30,29 @@ async function movimientosRoutes(fastify) {
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    // Contar total para paginación
-    const [countResult] = await pool.query(`SELECT COUNT(*) AS total FROM movimientos m WHERE ${where}`, params);
-
-    const [movimientos] = await pool.query(`
-      SELECT m.id, m.codigo, m.tipo, m.fecha_movimiento,
-             m.solicitante_ci, m.solicitante_nombre, m.solicitante_telefono,
-             m.destino_procedencia, m.motivo_baja, m.observacion,
-             m.almacen_id, alm.nombre AS almacen_nombre,
-             m.paquete_id, paq.nombre AS paquete_nombre,
-             (SELECT COUNT(*) FROM movimiento_detalles md WHERE md.movimiento_id = m.id) AS total_articulos
-      FROM movimientos m
-      JOIN almacenes alm ON m.almacen_id = alm.id
-      LEFT JOIN paquetes paq ON m.paquete_id = paq.id
-      WHERE ${where}
-      ORDER BY m.fecha_movimiento DESC
-      LIMIT ? OFFSET ?
-    `, [...params, Number(limit) || 20, Number(offset) || 0]);
+    // Ejecutar cuenta total y datos en paralelo
+    const [
+      [countResult],
+      [movimientos]
+    ] = await Promise.all([
+      pool.query(`SELECT COUNT(*) AS total FROM movimientos m WHERE ${where}`, params),
+      pool.query(`
+        SELECT m.id, m.codigo, m.tipo, m.fecha_movimiento,
+               m.solicitante_ci, m.solicitante_nombre, m.solicitante_telefono,
+               m.destino_procedencia, m.motivo_baja, m.observacion,
+               m.almacen_id, alm.nombre AS almacen_nombre,
+               m.paquete_id, paq.nombre AS paquete_nombre,
+               u.nombres AS usuario_nombres, u.apellidos AS usuario_apellidos,
+               (SELECT COUNT(*) FROM movimiento_detalles md WHERE md.movimiento_id = m.id) AS total_articulos
+        FROM movimientos m
+        JOIN almacenes alm ON m.almacen_id = alm.id
+        LEFT JOIN paquetes paq ON m.paquete_id = paq.id
+        LEFT JOIN usuarios u ON m.usuario_id = u.id
+        WHERE ${where}
+        ORDER BY m.fecha_movimiento DESC
+        LIMIT ? OFFSET ?
+      `, [...params, Number(limit) || 20, Number(offset) || 0])
+    ]);
 
     return { data: movimientos, total: countResult[0].total };
   });
@@ -182,25 +188,32 @@ async function movimientosRoutes(fastify) {
   // GET /api/movimientos/:id — Detalle con artículos
   fastify.get('/:id', async (request, reply) => {
     const { id } = request.params;
-    const [movimientos] = await pool.query(`
-      SELECT m.*, alm.nombre AS almacen_nombre, paq.nombre AS paquete_nombre
-      FROM movimientos m
-      JOIN almacenes alm ON m.almacen_id = alm.id
-      LEFT JOIN paquetes paq ON m.paquete_id = paq.id
-      WHERE m.id = ?
-    `, [id]);
-    if (movimientos.length === 0) return reply.code(404).send({ error: 'Movimiento no encontrado' });
+    const [
+      [movimientos],
+      [detalles]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT m.*, alm.nombre AS almacen_nombre, paq.nombre AS paquete_nombre,
+               u.nombres AS usuario_nombres, u.apellidos AS usuario_apellidos
+        FROM movimientos m
+        JOIN almacenes alm ON m.almacen_id = alm.id
+        LEFT JOIN paquetes paq ON m.paquete_id = paq.id
+        LEFT JOIN usuarios u ON m.usuario_id = u.id
+        WHERE m.id = ?
+      `, [id]),
+      pool.query(`
+        SELECT md.cantidad, md.stock_anterior, md.stock_posterior, md.observacion,
+               a.nombre AS articulo_nombre, a.requiere_devolucion,
+               c.nombre AS color_nombre, c.codigo_hex
+        FROM movimiento_detalles md
+        JOIN articulo_items ai ON md.articulo_item_id = ai.id
+        JOIN articulos a ON ai.articulo_id = a.id
+        JOIN colores c ON ai.color_id = c.id
+        WHERE md.movimiento_id = ?
+      `, [id])
+    ]);
 
-    const [detalles] = await pool.query(`
-      SELECT md.cantidad, md.stock_anterior, md.stock_posterior, md.observacion,
-             a.nombre AS articulo_nombre, a.requiere_devolucion,
-             c.nombre AS color_nombre, c.codigo_hex
-      FROM movimiento_detalles md
-      JOIN articulo_items ai ON md.articulo_item_id = ai.id
-      JOIN articulos a ON ai.articulo_id = a.id
-      JOIN colores c ON ai.color_id = c.id
-      WHERE md.movimiento_id = ?
-    `, [id]);
+    if (movimientos.length === 0) return reply.code(404).send({ error: 'Movimiento no encontrado' });
 
     return { data: { ...movimientos[0], detalles } };
   });

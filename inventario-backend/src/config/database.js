@@ -29,9 +29,7 @@ if (DB_MODE === 'cloud') {
 
 // --- CONFIGURACIÓN SQLITE ---
 if (DB_MODE === 'local') {
-  const Database = process.env.BETTER_SQLITE3_PATH 
-    ? require(process.env.BETTER_SQLITE3_PATH) 
-    : require('better-sqlite3');
+  const Database = require('better-sqlite3');
     
   // La ruta asume que estamos en el directorio de la app o backend.
   // En producción, esto apuntará al userData de Electron.
@@ -42,12 +40,41 @@ if (DB_MODE === 'local') {
 }
 
 // --- CAPA DE COMPATIBILIDAD SQLITE -> MYSQL2 ---
+function replaceBalancedFunction(sql, funcName, transformFn) {
+  // Reemplaza funcName(contenido_balanceado) usando conteo de paréntesis
+  const regex = new RegExp(funcName + '\\(', 'gi');
+  let match;
+  while ((match = regex.exec(sql)) !== null) {
+    const start = match.index;
+    let depth = 1;
+    let i = start + match[0].length;
+    while (i < sql.length && depth > 0) {
+      if (sql[i] === '(') depth++;
+      else if (sql[i] === ')') depth--;
+      i++;
+    }
+    const inner = sql.substring(start + match[0].length, i - 1);
+    const replacement = transformFn(inner);
+    sql = sql.substring(0, start) + replacement + sql.substring(i);
+    // Reset regex lastIndex para evitar saltar caracteres
+    regex.lastIndex = start + replacement.length;
+  }
+  return sql;
+}
+
 function executeSqliteQuery(sql, params = []) {
   // 1. Reemplazar funciones específicas de MySQL
-  sql = sql.replace(/HOUR\((.*?)\)/gi, "CAST(strftime('%H', $1) AS INTEGER)");
-  // DATE_ADD(expr, INTERVAL -4 HOUR) → datetime(expr, '-4 hours') para SQLite
-  sql = sql.replace(/DATE_ADD\((.*?),\s*INTERVAL\s+([-+]?\d+)\s+HOUR\)/gi, (match, expr, hours) => {
-    return `datetime(${expr}, '${hours} hours')`;
+  // IMPORTANTE: DATE_ADD debe ir ANTES de HOUR para que HOUR(datetime(...)) funcione bien
+  sql = replaceBalancedFunction(sql, 'DATE_ADD', (inner) => {
+    const intervalMatch = inner.match(/^(.*),\s*INTERVAL\s+([-+]?\d+)\s+HOUR$/i);
+    if (intervalMatch) {
+      return `datetime(${intervalMatch[1].trim()}, '${intervalMatch[2]} hours')`;
+    }
+    return `datetime(${inner})`; // fallback
+  });
+  // HOUR(expr) → CAST(strftime('%H', expr) AS INTEGER)
+  sql = replaceBalancedFunction(sql, 'HOUR', (inner) => {
+    return `CAST(strftime('%H', ${inner}) AS INTEGER)`;
   });
   sql = sql.replace(/DATE\((.*?)\)/gi, "DATE($1)"); // SQLite ya soporta DATE()
   sql = sql.replace(/FOR UPDATE/gi, ""); // No existe en SQLite, ignorarlo
@@ -156,6 +183,32 @@ const sqlitePool = {
 
 // --- EXPORTAR EL POOL ACTIVO ---
 const pool = DB_MODE === 'local' ? sqlitePool : mysqlPool;
+
+// Si estamos en la nube y dentro de Electron, notificar modificaciones para forzar backup local
+if (DB_MODE === 'cloud' && process.send) {
+  const originalQuery = pool.query;
+  pool.query = async function(sql, params) {
+    const result = await originalQuery.call(pool, sql, params);
+    if (typeof sql === 'string' && sql.trim().toUpperCase().match(/^(INSERT|UPDATE|DELETE)/)) {
+      process.send({ type: 'trigger_sync' });
+    }
+    return result;
+  };
+  
+  const originalGetConnection = pool.getConnection;
+  pool.getConnection = async function() {
+    const conn = await originalGetConnection.call(pool);
+    const origConnQuery = conn.query;
+    conn.query = async function(sql, params) {
+      const result = await origConnQuery.call(conn, sql, params);
+      if (typeof sql === 'string' && sql.trim().toUpperCase().match(/^(INSERT|UPDATE|DELETE)/)) {
+        process.send({ type: 'trigger_sync' });
+      }
+      return result;
+    };
+    return conn;
+  };
+}
 
 async function testConnection() {
   if (DB_MODE === 'local') {

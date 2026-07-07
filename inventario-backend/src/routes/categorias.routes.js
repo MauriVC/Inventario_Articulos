@@ -2,6 +2,7 @@
  * Rutas CRUD — Categorías (con jerarquía padre/hijo)
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
 
 async function categoriasRoutes(fastify) {
 
@@ -35,11 +36,20 @@ async function categoriasRoutes(fastify) {
     const { nombre, padre_id, descripcion } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
-    const [result] = await pool.query(
-      'INSERT INTO categorias (nombre, padre_id, descripcion) VALUES (?, ?, ?)',
-      [nombre, padre_id || null, descripcion || null]
-    );
-    return reply.code(201).send({ data: { id: result.insertId, nombre, padre_id, descripcion } });
+    try {
+      const [result] = await pool.query(
+        'INSERT INTO categorias (nombre, padre_id, descripcion) VALUES (?, ?, ?)',
+        [nombre, padre_id || null, descripcion || null]
+      );
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Categoría', descripcion: `Se registró la categoría "${nombre}"`, usuario_id: userId, referencia_id: result.insertId });
+      return reply.code(201).send({ data: { id: result.insertId, nombre, padre_id, descripcion } });
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe una categoría con este nombre' });
+      }
+      throw err;
+    }
   });
 
   // PUT /api/categorias/:id
@@ -48,19 +58,31 @@ async function categoriasRoutes(fastify) {
     const { nombre, padre_id, descripcion, estado } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
-    const [result] = await pool.query(
-      'UPDATE categorias SET nombre = ?, padre_id = ?, descripcion = ?, estado = ? WHERE id = ?',
-      [nombre, padre_id || null, descripcion || null, estado || 'Activo', id]
-    );
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Categoría no encontrada' });
-    return { data: { id: Number(id), nombre, padre_id, descripcion, estado } };
+    try {
+      const [result] = await pool.query(
+        'UPDATE categorias SET nombre = ?, padre_id = ?, descripcion = ?, estado = ? WHERE id = ?',
+        [nombre, padre_id || null, descripcion || null, estado || 'Activo', id]
+      );
+      if (result.affectedRows === 0) return reply.code(404).send({ error: 'Categoría no encontrada' });
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Categoría', descripcion: `Se editó la categoría "${nombre}"`, usuario_id: userId, referencia_id: Number(id) });
+      return { data: { id: Number(id), nombre, padre_id, descripcion, estado } };
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
+        return reply.code(400).send({ error: 'Ya existe una categoría con este nombre' });
+      }
+      throw err;
+    }
   });
 
   // DELETE /api/categorias/:id
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params;
+    const [[cat]] = await pool.query('SELECT nombre FROM categorias WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM categorias WHERE id = ?', [id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Categoría no encontrada' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Categoría', descripcion: `Se eliminó la categoría "${cat ? cat.nombre : 'ID:'+id}"`, usuario_id: userId, referencia_id: Number(id) });
     return { message: 'Categoría eliminada' };
   });
 }

@@ -84,21 +84,21 @@
             <div class="grid-2 mb-4">
               <div class="form-group">
                 <label class="form-label">Carnet *</label>
-                <input type="text" v-model="form.carnet" class="form-input" placeholder="Carnet de identidad" required />
+                <input type="text" v-model="form.carnet" class="form-input" placeholder="Carnet de identidad" required @input="form.carnet = form.carnet.replace(/[^0-9]/g, '')" />
               </div>
               <div class="form-group">
                 <label class="form-label">Teléfono</label>
-                <input type="text" v-model="form.telefono" class="form-input" placeholder="Número de teléfono" />
+                <input type="text" v-model="form.telefono" class="form-input" placeholder="Número de teléfono" @input="form.telefono = form.telefono.replace(/[^0-9]/g, '')" />
               </div>
             </div>
             <div class="grid-2 mb-4">
               <div class="form-group">
                 <label class="form-label">Nombres *</label>
-                <input type="text" v-model="form.nombres" class="form-input" placeholder="Nombres" required />
+                <input type="text" v-model="form.nombres" class="form-input" placeholder="Nombres" required @input="form.nombres = form.nombres.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
               </div>
               <div class="form-group">
                 <label class="form-label">Apellidos *</label>
-                <input type="text" v-model="form.apellidos" class="form-input" placeholder="Apellidos" required />
+                <input type="text" v-model="form.apellidos" class="form-input" placeholder="Apellidos" required @input="form.apellidos = form.apellidos.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
               </div>
             </div>
             <div class="grid-2 mb-4">
@@ -152,6 +152,7 @@
 import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save, UserMinus, UserCheck } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const loading = ref(true)
@@ -255,8 +256,9 @@ async function saveUsuario() {
     }
     closeModal()
     await loadUsuarios()
+    showSuccess(isEditing.value ? 'Usuario actualizado' : 'Usuario creado')
   } catch (err) {
-    alert('Error al guardar usuario: ' + (err.response?.data?.error || err.message))
+    showError('Error al guardar usuario: ' + (err.response?.data?.error || err.message))
   } finally {
     saving.value = false
   }
@@ -264,7 +266,7 @@ async function saveUsuario() {
 
 async function toggleEstado(usuario) {
   const newEstado = usuario.estado === 'Activo' ? 'Inactivo' : 'Activo'
-  if (!confirm(`¿Estás seguro de que deseas ${newEstado === 'Inactivo' ? 'inhabilitar' : 'habilitar'} al usuario ${usuario.nombres}?`)) {
+  if (!await confirmAction('Cambiar Estado', `¿Estás seguro de que deseas ${newEstado === 'Inactivo' ? 'inhabilitar' : 'habilitar'} al usuario ${usuario.nombres}?`)) {
     return
   }
 
@@ -280,8 +282,9 @@ async function toggleEstado(usuario) {
       almacenes: usuario.almacenes.map(a => a.id)
     })
     await loadUsuarios()
+    showSuccess(`Usuario ${newEstado === 'Inactivo' ? 'inhabilitado' : 'habilitado'}`)
   } catch (err) {
-    alert('Error al cambiar estado: ' + err.message)
+    showError('Error al cambiar estado: ' + err.message)
   }
 }
 </script>

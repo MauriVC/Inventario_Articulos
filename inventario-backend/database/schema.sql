@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS usuario_almacen (
 -- ============================================
 CREATE TABLE IF NOT EXISTS categorias (
   id            INT AUTO_INCREMENT PRIMARY KEY,
-  nombre        VARCHAR(100) NOT NULL,
+  nombre        VARCHAR(100) NOT NULL UNIQUE,
   padre_id      INT DEFAULT NULL,
   descripcion   VARCHAR(255),
   estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS categorias (
 -- ============================================
 CREATE TABLE IF NOT EXISTS marcas (
   id            INT AUTO_INCREMENT PRIMARY KEY,
-  nombre        VARCHAR(100) NOT NULL,
+  nombre        VARCHAR(100) NOT NULL UNIQUE,
   descripcion   VARCHAR(255),
   estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS marcas (
 -- ============================================
 CREATE TABLE IF NOT EXISTS unidad_medidas (
   id            INT AUTO_INCREMENT PRIMARY KEY,
-  nombre        VARCHAR(50) NOT NULL,
+  nombre        VARCHAR(50) NOT NULL UNIQUE,
   abreviatura   VARCHAR(10),
   estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS unidad_medidas (
 -- ============================================
 CREATE TABLE IF NOT EXISTS colores (
   id            INT AUTO_INCREMENT PRIMARY KEY,
-  nombre        VARCHAR(50) NOT NULL,
+  nombre        VARCHAR(50) NOT NULL UNIQUE,
   codigo_hex    VARCHAR(7) DEFAULT '#CCCCCC',
   estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

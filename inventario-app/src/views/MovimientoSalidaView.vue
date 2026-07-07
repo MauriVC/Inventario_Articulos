@@ -9,7 +9,7 @@
           <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
         </select>
       </div>
-      <span class="text-muted text-sm">Código: <strong class="text-primary">SAL-2026-0013</strong> (Auto-generado)</span>
+      <span class="text-muted text-sm">Código: <strong style="color: var(--color-danger);">Auto-generado</strong></span>
     </div>
 
     <div class="mov-form-grid">
@@ -22,17 +22,17 @@
               <label class="form-label">Carnet de Identidad *</label>
               <div class="form-input-icon">
                 <Search :size="16" />
-                <input v-model="solicitante.carnet" type="text" class="form-input" placeholder="Buscar por carnet..." @input="buscarSolicitante" />
+                <input v-model="solicitante.carnet" type="text" class="form-input" placeholder="Buscar por carnet..." @input="solicitante.carnet = solicitante.carnet.replace(/[^0-9]/g, ''); buscarSolicitante()" />
               </div>
               <span class="text-xs text-muted" v-if="solicitanteEncontrado">✓ Solicitante encontrado, datos autocompletados</span>
             </div>
             <div class="form-group">
               <label class="form-label">Nombre Completo *</label>
-              <input v-model="solicitante.nombre" type="text" class="form-input" placeholder="Nombre y apellidos" />
+              <input v-model="solicitante.nombre" type="text" class="form-input" placeholder="Nombre y apellidos" @input="solicitante.nombre = solicitante.nombre.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Teléfono</label>
-              <input v-model="solicitante.telefono" type="text" class="form-input" placeholder="Número de teléfono" />
+              <input v-model="solicitante.telefono" type="text" class="form-input" placeholder="Número de teléfono" @input="solicitante.telefono = solicitante.telefono.replace(/[^0-9]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Destino de los materiales *</label>
@@ -72,8 +72,8 @@
         <span class="badge badge-primary">{{ items.length }} artículo(s)</span>
       </div>
       <div class="card-body">
-        <!-- Mode Toggle: Artículos individuales vs Paquete -->
-        <div class="mode-toggle mb-4">
+        <!-- Mode Toggle: Artículos individuales vs Paquete (Oculto temporalmente) -->
+        <div class="mode-toggle mb-4" v-show="false">
           <button class="mode-btn" :class="{ active: mode === 'articulos' }" @click="mode = 'articulos'">
             <Package :size="16" /> Artículos individuales
           </button>
@@ -184,7 +184,7 @@
 
         <div class="empty-state" v-else>
           <Package :size="48" />
-          <p>Busca artículos o selecciona un paquete para la salida</p>
+          <p>Busca y agrega artículos para la salida</p>
         </div>
       </div>
     </div>
@@ -192,7 +192,7 @@
     <!-- Footer Actions -->
     <div class="form-actions mt-6">
       <router-link to="/" class="btn btn-secondary">Cancelar</router-link>
-      <button class="btn btn-danger btn-lg" :disabled="items.length === 0 || !selectedAlmacen || saving" @click="registrarSalida">
+      <button class="btn btn-danger btn-lg" :disabled="saving" @click="registrarSalida">
         <ArrowUpFromLine :size="18" />
         {{ saving ? 'Registrando...' : 'Registrar Salida' }}
       </button>
@@ -205,6 +205,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Calendar, ArrowUpFromLine, Package, X, Boxes, RotateCcw } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const router = useRouter()
 
@@ -237,10 +238,6 @@ onMounted(async () => {
   try {
     const resAlm = await api.getAlmacenes()
     almacenes.value = resAlm.data.filter(a => a.estado === 'Activo')
-    if (almacenes.value.length > 0) {
-      selectedAlmacen.value = almacenes.value[0].id
-      await loadAlmacenData()
-    }
   } catch (error) {
     console.error("Error cargando almacenes:", error)
   }
@@ -359,9 +356,16 @@ function limpiarPaquete() {
 }
 
 async function registrarSalida() {
-  if (items.value.length === 0 || !selectedAlmacen.value) return
+  if (!selectedAlmacen.value) {
+    showWarning("Primero debe seleccionar un almacén para registrar el movimiento.")
+    return
+  }
+  if (items.value.length === 0) {
+    showWarning("Debe agregar al menos un artículo para la salida.")
+    return
+  }
   if (!solicitante.value.carnet || !solicitante.value.nombre || !destino.value) {
-    alert("Por favor, complete los campos obligatorios del solicitante y destino.")
+    showWarning("Por favor, complete los campos obligatorios del solicitante y destino.")
     return
   }
 
@@ -385,10 +389,10 @@ async function registrarSalida() {
     await api.createMovimiento(payload)
     
     // Redirect to historial or success page
-    alert("Salida registrada exitosamente")
+    showSuccess("Salida registrada exitosamente")
     router.push('/historial')
   } catch (error) {
-    alert("Error al registrar la salida: " + error.message)
+    showError("Error al registrar la salida: " + error.message)
   } finally {
     saving.value = false
   }

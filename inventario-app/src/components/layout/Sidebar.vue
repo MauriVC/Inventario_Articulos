@@ -1,29 +1,35 @@
 <template>
-  <aside class="sidebar">
-    <!-- Logo -->
-    <div class="sidebar-logo">
-      <img :src="logoUrl" alt="U.E. Corazón Nuevo" class="sidebar-logo-img" />
-      <div class="sidebar-logo-text">
-        <span class="sidebar-logo-title">Control de Inventario</span>
-        <span class="sidebar-logo-subtitle">U.E. Corazón Nuevo</span>
+  <aside class="sidebar" :class="{ 'collapsed': isCollapsed }">
+    <!-- Logo & Toggle -->
+    <div class="sidebar-logo" :class="{ 'justify-center': isCollapsed }">
+      <div class="sidebar-brand" :class="{ 'hidden-text': isCollapsed }">
+        <img :src="logoUrl" alt="U.E. Corazón Nuevo" class="sidebar-logo-img" />
+        <div class="sidebar-logo-text">
+          <span class="sidebar-logo-title">Control de Inventario</span>
+          <span class="sidebar-logo-subtitle">U.E. Corazón Nuevo</span>
+        </div>
       </div>
+      <button class="sidebar-toggle" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? 'Expandir' : 'Contraer'">
+        <Menu :size="24" v-if="isCollapsed" style="color: var(--color-white);" />
+        <ChevronLeft :size="20" v-else />
+      </button>
     </div>
 
     <!-- Navigation -->
     <nav class="sidebar-nav">
       <div class="sidebar-section">
         <span class="sidebar-section-label">Principal</span>
-        <router-link to="/" class="sidebar-link" :class="{ active: $route.name === 'Dashboard' }">
+        <router-link to="/" class="sidebar-link" :class="{ active: $route.name === 'Dashboard' }" :title="isCollapsed ? 'Dashboard' : ''">
           <LayoutDashboard :size="20" />
-          <span>Dashboard</span>
+          <span class="link-text">Dashboard</span>
         </router-link>
-        <router-link to="/almacenes" class="sidebar-link" :class="{ active: $route.name === 'Almacenes' }">
+        <router-link to="/almacenes" class="sidebar-link" :class="{ active: $route.name === 'Almacenes' }" :title="isCollapsed ? 'Almacenes' : ''">
           <Warehouse :size="20" />
-          <span>Almacenes</span>
+          <span class="link-text">Almacenes</span>
         </router-link>
-        <router-link to="/articulos" class="sidebar-link" :class="{ active: $route.name === 'Articulos' }">
+        <router-link to="/articulos" class="sidebar-link" :class="{ active: $route.name === 'Articulos' }" :title="isCollapsed ? 'Artículos' : ''">
           <Package :size="20" />
-          <span>Artículos</span>
+          <span class="link-text">Artículos</span>
         </router-link>
         <!-- Paquetes oculto visualmente, la ruta sigue disponible -->
         <!-- <router-link to="/paquetes" class="sidebar-link" :class="{ active: $route.name === 'Paquetes' }">
@@ -34,70 +40,71 @@
 
       <div class="sidebar-section">
         <span class="sidebar-section-label">Movimientos</span>
-        <router-link to="/movimientos/salida" class="sidebar-link" :class="{ active: $route.name === 'MovimientoSalida' }">
+        <router-link to="/movimientos/salida" class="sidebar-link" :class="{ active: $route.name === 'MovimientoSalida' }" :title="isCollapsed ? 'Salida' : ''">
           <ArrowUpFromLine :size="20" />
-          <span>Salida</span>
-          <span class="sidebar-badge badge-sal">SAL</span>
+          <span class="link-text">Salida</span>
+          <span class="sidebar-badge badge-sal" v-show="!isCollapsed">SAL</span>
         </router-link>
-        <router-link to="/movimientos/entrada" class="sidebar-link" :class="{ active: $route.name === 'MovimientoEntrada' }">
+        <router-link to="/movimientos/entrada" class="sidebar-link" :class="{ active: $route.name === 'MovimientoEntrada' }" :title="isCollapsed ? 'Entrada' : ''">
           <ArrowDownToLine :size="20" />
-          <span>Entrada</span>
-          <span class="sidebar-badge badge-ent">ENT</span>
+          <span class="link-text">Entrada</span>
+          <span class="sidebar-badge badge-ent" v-show="!isCollapsed">ENT</span>
         </router-link>
-        <router-link to="/historial" class="sidebar-link" :class="{ active: $route.name === 'Historial' }" v-if="isAdmin">
-          <ClipboardList :size="20" />
-          <span>Historial</span>
-        </router-link>
-        <router-link to="/movimientos/baja" class="sidebar-link" :class="{ active: $route.name === 'BajaArticulos' }">
+
+        <router-link to="/movimientos/baja" class="sidebar-link" :class="{ active: $route.name === 'BajaArticulos' }" :title="isCollapsed ? 'Baja' : ''">
           <PackageMinus :size="20" />
-          <span>Baja</span>
-          <span class="sidebar-badge badge-baj">BAJ</span>
+          <span class="link-text">Baja</span>
+          <span class="sidebar-badge badge-baj" v-show="!isCollapsed">BAJ</span>
         </router-link>
       </div>
 
       <div class="sidebar-section">
         <span class="sidebar-section-label">Catálogos</span>
-        <router-link to="/categorias" class="sidebar-link" :class="{ active: $route.name === 'Categorias' }">
+        <router-link to="/categorias" class="sidebar-link" :class="{ active: $route.name === 'Categorias' }" :title="isCollapsed ? 'Categorías' : ''">
           <FolderTree :size="20" />
-          <span>Categorías</span>
+          <span class="link-text">Categorías</span>
         </router-link>
-        <router-link to="/marcas" class="sidebar-link" :class="{ active: $route.name === 'Marcas' }">
+        <router-link to="/marcas" class="sidebar-link" :class="{ active: $route.name === 'Marcas' }" :title="isCollapsed ? 'Marcas' : ''">
           <Tag :size="20" />
-          <span>Marcas</span>
+          <span class="link-text">Marcas</span>
         </router-link>
-        <router-link to="/unidades" class="sidebar-link" :class="{ active: $route.name === 'Unidades' }">
+        <router-link to="/unidades" class="sidebar-link" :class="{ active: $route.name === 'Unidades' }" :title="isCollapsed ? 'Unidades' : ''">
           <Ruler :size="20" />
-          <span>Unidades de Medida</span>
+          <span class="link-text">Unidades de Medida</span>
         </router-link>
-        <router-link to="/colores" class="sidebar-link" :class="{ active: $route.name === 'Colores' }">
+        <router-link to="/colores" class="sidebar-link" :class="{ active: $route.name === 'Colores' }" :title="isCollapsed ? 'Colores' : ''">
           <Palette :size="20" />
-          <span>Colores</span>
+          <span class="link-text">Colores</span>
         </router-link>
-        <router-link to="/atributos" class="sidebar-link" :class="{ active: $route.name === 'Atributos' }">
+        <router-link to="/atributos" class="sidebar-link" :class="{ active: $route.name === 'Atributos' }" :title="isCollapsed ? 'Atributos' : ''">
           <Tags :size="20" />
-          <span>Atributos</span>
+          <span class="link-text">Atributos</span>
         </router-link>
-        <router-link to="/devolucion" class="sidebar-link" :class="{ active: $route.name === 'Devolucion' }">
+        <router-link to="/devolucion" class="sidebar-link" :class="{ active: $route.name === 'Devolucion' }" :title="isCollapsed ? 'Devolución' : ''">
           <RotateCcw :size="20" />
-          <span>Adm. Devolución</span>
+          <span class="link-text">Adm. Devolución</span>
         </router-link>
       </div>
 
-      <div class="sidebar-section" v-if="isSuperAdmin">
+      <div class="sidebar-section" v-if="isAdmin || isSuperAdmin">
         <span class="sidebar-section-label">Administración</span>
-        <router-link to="/usuarios" class="sidebar-link" :class="{ active: $route.name === 'Usuarios' }">
+        <router-link to="/historial" class="sidebar-link" :class="{ active: $route.name === 'Historial' }" v-if="isAdmin" :title="isCollapsed ? 'Historial' : ''">
+          <ClipboardList :size="20" />
+          <span class="link-text">Historial</span>
+        </router-link>
+        <router-link to="/usuarios" class="sidebar-link" :class="{ active: $route.name === 'Usuarios' }" v-if="isSuperAdmin" :title="isCollapsed ? 'Usuarios' : ''">
           <Users :size="20" />
-          <span>Usuarios</span>
+          <span class="link-text">Usuarios</span>
         </router-link>
       </div>
     </nav>
 
     <!-- User Info -->
-    <div class="sidebar-user">
+    <div class="sidebar-user" :class="{ 'collapsed-user': isCollapsed }">
       <div class="sidebar-user-avatar">
         <UserCircle :size="36" />
       </div>
-      <div class="sidebar-user-info">
+      <div class="sidebar-user-info" v-show="!isCollapsed">
         <span class="sidebar-user-name">{{ userName }}</span>
         <span class="sidebar-user-role">{{ userRole }}</span>
       </div>
@@ -111,13 +118,16 @@
 <script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useStorage } from '@vueuse/core'
 import {
   LayoutDashboard, Warehouse, Package, Boxes,
   ArrowUpFromLine, ArrowDownToLine, ClipboardList, PackageMinus,
   FolderTree, Tag, Ruler, Palette, Tags, RotateCcw,
-  Users, UserCircle, LogOut
+  Users, UserCircle, LogOut, ChevronLeft, ChevronRight, Menu
 } from 'lucide-vue-next'
 import { auth } from '@/auth'
+
+const isCollapsed = useStorage('sidebar-collapsed', false)
 
 import logoSrc from '@/assets/logo.png'
 const logoUrl = computed(() => logoSrc)
@@ -143,15 +153,52 @@ function handleLogout() {
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
+  transition: width var(--transition-base) cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed);
 }
 
 /* Logo */
 .sidebar-logo {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: space-between;
   padding: var(--space-5) var(--space-4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-base);
+}
+.sidebar-logo.justify-center {
+  justify-content: center;
+  padding: var(--space-5) 0;
+}
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  overflow: hidden;
+  transition: opacity 0.2s, width 0.2s;
+}
+.sidebar-brand.hidden-text {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+.sidebar-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+.sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-white);
 }
 .sidebar-logo-img {
   width: 44px;
@@ -201,6 +248,15 @@ function handleLogout() {
   color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sidebar.collapsed .sidebar-section-label {
+  opacity: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
 }
 
 .sidebar-link {
@@ -215,6 +271,21 @@ function handleLogout() {
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
   text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+.sidebar.collapsed .sidebar-link {
+  padding: var(--space-2) 0;
+  justify-content: center;
+}
+.sidebar-link .link-text {
+  transition: opacity 0.2s, width 0.2s;
+  white-space: nowrap;
+}
+.sidebar.collapsed .sidebar-link .link-text {
+  opacity: 0;
+  width: 0;
+  display: none;
 }
 .sidebar-link:hover {
   background: rgba(255, 255, 255, 0.08);
@@ -233,9 +304,6 @@ function handleLogout() {
   height: 24px;
   background: var(--color-primary-lighter);
   border-radius: 0 3px 3px 0;
-}
-.sidebar-link {
-  position: relative;
 }
 
 .sidebar-badge {
@@ -267,6 +335,12 @@ function handleLogout() {
   padding: var(--space-4) var(--space-4);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.15);
+  transition: all var(--transition-base);
+}
+.sidebar-user.collapsed-user {
+  flex-direction: column;
+  padding: var(--space-4) 0;
+  gap: var(--space-2);
 }
 .sidebar-user-avatar {
   color: rgba(255, 255, 255, 0.7);

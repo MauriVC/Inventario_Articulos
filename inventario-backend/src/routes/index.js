@@ -24,6 +24,9 @@ async function registerRoutes(fastify) {
 
   // Dashboard
   fastify.register(require('./dashboard.routes'),    { prefix: '/api/dashboard' });
+
+  // Historial de Actividades (unificado)
+  fastify.register(require('./actividad.routes'),    { prefix: '/api/actividad' });
 }
 
 module.exports = registerRoutes;

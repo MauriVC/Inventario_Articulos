@@ -280,6 +280,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { Search, Package, RotateCcw, PackageX, Info, ArrowUpRight, CheckCircle } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const search = ref('')
 const selectedCategoria = ref('')
@@ -364,8 +365,9 @@ async function toggleDevolucion(art) {
   try {
     await api.toggleDevolucion(art.id, newValue)
     art.requiere_devolucion = newValue
+    showSuccess('Estado de devolución actualizado')
   } catch (err) {
-    alert('Error al cambiar devolución: ' + err.message)
+    showError('Error al cambiar devolución: ' + err.message)
   }
 }
 

@@ -53,9 +53,9 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="art in filteredArticulos" :key="art.id">
+              <template v-for="art in paginatedArticulos" :key="art.id">
               <tr>
-                <td class="font-semibold text-primary">{{ art.codigo || '—' }}</td>
+                <td class="font-semibold text-primary" style="white-space: nowrap;">{{ art.codigo || '—' }}</td>
                 <td>
                   <div class="flex items-center gap-2" style="flex-wrap: wrap;">
                     <span class="font-medium">{{ art.nombre }}</span>
@@ -89,8 +89,8 @@
                 </td>
                 <td>
                   <div class="flex gap-1">
-                    <button class="btn btn-ghost btn-icon" title="Ver variantes" @click="toggleExpand(art.id)">
-                      <ChevronDown :size="16" :class="{ 'rotate-180': expandedId === art.id }" style="transition: transform 0.2s;" />
+                    <button class="btn btn-ghost btn-icon" title="Ver detalle" @click="openDetalle(art)">
+                      <Eye :size="16" />
                     </button>
                     <button class="btn btn-ghost btn-icon" title="Editar" v-if="auth.isAdmin" @click="openModal(art.id)">
                       <Pencil :size="16" />
@@ -101,26 +101,139 @@
                   </div>
                 </td>
               </tr>
-              <!-- Expanded Variants Row -->
-              <tr v-if="expandedId === art.id" class="expanded-row">
-                <td colspan="10">
-                  <div class="variants-detail">
-                    <div class="variant-item" v-for="v in art.variantes" :key="v.id">
-                      <span class="color-dot" :style="{ background: v.codigo_hex }"></span>
-                      <span class="font-medium">{{ v.color_nombre }}</span>
-                      <span class="text-muted">Stock: <strong>{{ v.stock }}</strong></span>
-                    </div>
-                  </div>
-                </td>
-              </tr>
+
               </template>
-              <tr v-if="filteredArticulos.length === 0">
+              <tr v-if="paginatedArticulos.length === 0">
                 <td colspan="10" class="text-center text-muted" style="padding: var(--space-6);">
                   No se encontraron artículos
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <!-- Paginación -->
+        <div class="pagination flex items-center justify-between" v-if="totalRecords > 0" style="padding: var(--space-4); border-top: 1px solid var(--color-gray-100);">
+          <div class="flex items-center gap-3">
+            <span class="pagination-info text-sm text-muted">
+              Mostrando {{ paginationStart }}-{{ paginationEnd }} de {{ totalRecords }} artículos
+            </span>
+            <select v-model="itemsPerPage" class="form-select" style="width: auto; padding-top: 4px; padding-bottom: 4px; font-size: 13px;" @change="currentPage = 1">
+              <option :value="5">5 por página</option>
+              <option :value="10">10 por página</option>
+              <option :value="20">20 por página</option>
+              <option :value="50">50 por página</option>
+            </select>
+          </div>
+          <div class="pagination-buttons flex gap-1">
+            <button class="pagination-btn" :disabled="currentPage <= 1" @click="currentPage = 1">&laquo;</button>
+            <button class="pagination-btn" :disabled="currentPage <= 1" @click="currentPage--">&lsaquo;</button>
+            <button 
+              v-for="p in visiblePages" :key="p"
+              class="pagination-btn" 
+              :class="{ active: p === currentPage }"
+              @click="currentPage = p"
+            >{{ p }}</button>
+            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="currentPage++">&rsaquo;</button>
+            <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="currentPage = totalPages">&raquo;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" v-if="selectedArticulo" @click.self="selectedArticulo = null">
+      <div class="modal-content modal-lg">
+        <div class="modal-header">
+          <div class="flex items-center gap-3">
+            <h2>Detalle del Artículo</h2>
+            <span class="badge" :class="selectedArticulo.estado === 'Activo' ? 'badge-success' : 'badge-danger'">{{ selectedArticulo.estado }}</span>
+          </div>
+          <button class="btn btn-ghost btn-icon" @click="selectedArticulo = null"><X :size="20" /></button>
+        </div>
+        <div class="modal-body" style="background-color: #fcfcfc; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; padding: var(--space-5);">
+          <!-- Main Info Card -->
+          <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-4); box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+            <div class="grid-3" style="gap: var(--space-4);">
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Código</span>
+                <p class="font-bold" style="color: var(--color-primary); font-size: 1.1em;">{{ selectedArticulo.codigo || '—' }}</p>
+              </div>
+              <div style="grid-column: span 2;">
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Nombre del Artículo</span>
+                <p class="font-bold" style="color: #1e293b; font-size: 1.1em;">{{ selectedArticulo.nombre }}</p>
+              </div>
+              
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Responsable</span>
+                <p class="font-medium flex items-center gap-1.5" style="color: #475569;">
+                  <User :size="14" style="color: #94a3b8;" /> {{ selectedArticulo.responsable_nombre || 'Sistema' }}
+                </p>
+              </div>
+              
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Categoría</span>
+                <p class="font-medium flex items-center gap-1.5" style="color: #475569;">
+                  <Folder :size="14" style="color: #94a3b8;" /> {{ selectedArticulo.categoria_nombre }}
+                </p>
+              </div>
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Almacén</span>
+                <p class="font-medium flex items-center gap-1.5" style="color: #475569;">
+                  <Warehouse :size="14" style="color: #94a3b8;" /> {{ selectedArticulo.almacen_nombre }}
+                </p>
+              </div>
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Marca / Unidad</span>
+                <p class="font-medium" style="color: #475569;">
+                  {{ selectedArticulo.marca_nombre || 'S/M' }} &nbsp;&bull;&nbsp; {{ selectedArticulo.unidad_nombre }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description and Attributes Grid -->
+          <div class="grid-2 mb-4" style="gap: var(--space-4);" v-if="selectedArticulo.descripcion || (selectedArticulo.atributos && selectedArticulo.atributos.length > 0)">
+            <div v-if="selectedArticulo.descripcion" style="background-color: white; border: 1px solid #e2e8f0; border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: 0 1px 2px rgba(0,0,0,0.02);" :style="{ gridColumn: (!selectedArticulo.atributos || selectedArticulo.atributos.length === 0) ? 'span 2' : 'span 1' }">
+              <span class="text-xs text-muted font-semibold uppercase tracking-wider block mb-2 flex items-center gap-1.5"><AlignLeft :size="14" /> Descripción</span>
+              <p class="text-sm" style="color: #475569; line-height: 1.6;">{{ selectedArticulo.descripcion }}</p>
+            </div>
+            
+            <div v-if="selectedArticulo.atributos && selectedArticulo.atributos.length > 0" style="background-color: white; border: 1px solid #e2e8f0; border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: 0 1px 2px rgba(0,0,0,0.02);" :style="{ gridColumn: !selectedArticulo.descripcion ? 'span 2' : 'span 1' }">
+              <span class="text-xs text-muted font-semibold uppercase tracking-wider block mb-3 flex items-center gap-1.5"><Tags :size="14" /> Atributos Asignados</span>
+              <div class="flex gap-2 flex-wrap">
+                <span class="attr-pill" v-for="attr in selectedArticulo.atributos" :key="attr" style="background-color: #f8fafc; border-color: #e2e8f0; color: #334155; font-weight: 500; font-size: 12px; padding: 4px 10px;">{{ attr }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Variants Table -->
+          <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+            <div style="background-color: #f8fafc; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+              <h3 class="font-semibold m-0 flex items-center gap-2" style="font-size: 13px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">
+                <Palette :size="16" style="color: #64748b;" /> Variantes y Stock
+              </h3>
+              <span class="badge badge-primary" style="font-size: 12px; font-weight: 700; padding: 4px 10px;">Total: {{ selectedArticulo.stock_total }}</span>
+            </div>
+            <table class="table" style="margin: 0; border: none; width: 100%;">
+              <thead>
+                <tr>
+                  <th style="background-color: transparent; border-bottom: 1px solid #e2e8f0; font-size: 11px; padding: 10px 16px;">Color / Variante</th>
+                  <th class="text-center" style="background-color: transparent; border-bottom: 1px solid #e2e8f0; font-size: 11px; padding: 10px 16px;">Stock Disponible</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="v in selectedArticulo.variantes" :key="v.id">
+                  <td style="border-bottom: 1px solid #f1f5f9; padding: 12px 16px;">
+                    <div class="flex items-center gap-3">
+                      <span class="color-dot" :style="{ background: v.codigo_hex, width: '18px', height: '18px', display: 'inline-block', borderRadius: '50%', boxShadow: '0 0 0 1px rgba(0,0,0,0.1) inset' }"></span>
+                      <span class="font-medium" style="color: #334155;">{{ v.color_nombre }}</span>
+                    </div>
+                  </td>
+                  <td class="font-bold text-center" style="border-bottom: 1px solid #f1f5f9; padding: 12px 16px; color: #0f172a; font-size: 15px;">{{ v.stock }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -137,6 +250,7 @@
             <div class="form-group">
               <label class="form-label">Almacén *</label>
               <select v-model="form.almacen_id" class="form-select">
+                <option value="">Seleccione un almacén...</option>
                 <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
               </select>
             </div>
@@ -249,14 +363,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Search, Plus, Pencil, Trash2, ChevronDown, X, Save, Tags } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { Search, Plus, Pencil, Trash2, Eye, X, Save, Tags, Folder, Warehouse, AlignLeft, Palette, User } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
+const selectedArticulo = ref(null)
 const editingArticulo = ref(null)
-const expandedId = ref(null)
 const search = ref('')
 const selectedAlmacen = ref('')
 const selectedCategoria = ref('')
@@ -276,8 +391,8 @@ const articulos = ref([])
 
 // Form data
 const form = ref({
-  almacen_id: null,
-  categoria_id: null,
+  almacen_id: '',
+  categoria_id: '',
   marca_id: null,
   unidad_medida_id: null,
   codigo: '',
@@ -305,18 +420,60 @@ function agregarDato() {
   selectedDato.value = ''
 }
 
-// Filtros
+// Filtros y Paginación
 const filteredArticulos = computed(() => {
   return articulos.value.filter(a => {
     const matchSearch = !search.value || a.nombre.toLowerCase().includes(search.value.toLowerCase()) || (a.codigo && a.codigo.toLowerCase().includes(search.value.toLowerCase()))
     const matchCat = !selectedCategoria.value || a.categoria_nombre === selectedCategoria.value
     const matchMarca = !selectedMarca.value || a.marca_nombre === selectedMarca.value
-    return matchSearch && matchCat && matchMarca
+    const matchAlmacen = !selectedAlmacen.value || a.almacen_id === selectedAlmacen.value
+    return matchSearch && matchCat && matchMarca && matchAlmacen
+  }).sort((a, b) => {
+    // Extraer número de ART-YYYY-XXXX si es posible, o comparar alfabéticamente
+    const codeA = a.codigo || ''
+    const codeB = b.codigo || ''
+    return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
   })
 })
 
-function toggleExpand(id) {
-  expandedId.value = expandedId.value === id ? null : id
+const currentPage = ref(1)
+const itemsPerPage = ref(10)
+
+const paginatedArticulos = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredArticulos.value.slice(start, end)
+})
+
+const totalRecords = computed(() => filteredArticulos.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / itemsPerPage.value)))
+const paginationStart = computed(() => totalRecords.value > 0 ? ((currentPage.value - 1) * itemsPerPage.value) + 1 : 0)
+const paginationEnd = computed(() => Math.min(currentPage.value * itemsPerPage.value, totalRecords.value))
+
+const visiblePages = computed(() => {
+  const pages = []
+  const total = totalPages.value
+  const current = currentPage.value
+  
+  let start = Math.max(1, current - 2)
+  let end = Math.min(total, current + 2)
+  
+  if (end - start < 4) {
+    if (start === 1) end = Math.min(total, start + 4)
+    else start = Math.max(1, end - 4)
+  }
+  
+  for (let i = start; i <= end; i++) pages.push(i)
+  return pages
+})
+
+// Resetear página a 1 si cambian los filtros
+watch([search, selectedCategoria, selectedMarca, selectedAlmacen], () => {
+  currentPage.value = 1
+})
+
+function openDetalle(art) {
+  selectedArticulo.value = art
 }
 
 // ─── Cargar datos iniciales ───
@@ -357,13 +514,14 @@ async function toggleEstado(art) {
   if (!auth.isAdmin) return
   
   const nuevoEstado = art.estado === 'Activo' ? 'Inactivo' : 'Activo'
-  if (!confirm(`¿Cambiar estado del artículo a ${nuevoEstado}?`)) return
+  if (!await confirmAction('Confirmar', `¿Cambiar estado del artículo a ${nuevoEstado}?`)) return
   
   try {
     await api.toggleEstadoArticulo(art.id, nuevoEstado)
     art.estado = nuevoEstado
+    showSuccess('Estado actualizado')
   } catch (error) {
-    alert("Error al cambiar estado: " + error.message)
+    showError("Error al cambiar estado: " + error.message)
   }
 }
 
@@ -402,7 +560,7 @@ async function openModal(id = null) {
         datoId: a.dato_id
       }))
     } catch (err) {
-      alert("Error cargando el artículo: " + err.message)
+      showError("Error cargando el artículo: " + err.message)
       loading.value = false
       return
     } finally {
@@ -411,8 +569,8 @@ async function openModal(id = null) {
   } else {
     editingArticulo.value = null
     form.value = {
-      almacen_id: almacenes.value.length > 0 ? almacenes.value[0].id : null,
-      categoria_id: categorias.value.length > 0 ? categorias.value[0].id : null,
+      almacen_id: '',
+      categoria_id: categorias.value.length > 0 ? categorias.value[0].id : '',
       marca_id: null,
       unidad_medida_id: unidades.value.length > 0 ? unidades.value[0].id : null,
       codigo: '',
@@ -425,6 +583,11 @@ async function openModal(id = null) {
 
 async function guardarArticulo() {
   formError.value = ''
+
+  if (!form.value.almacen_id) {
+    formError.value = 'Primero debe seleccionar un almacén para registrar el artículo'
+    return
+  }
 
   if (!form.value.nombre.trim()) {
     formError.value = 'El nombre del artículo es obligatorio'
@@ -465,8 +628,10 @@ async function guardarArticulo() {
     }
     if (editingArticulo.value) {
       await api.updateArticulo(editingArticulo.value, payload)
+      showSuccess('Artículo actualizado correctamente')
     } else {
       await api.createArticulo(payload)
+      showSuccess('Artículo creado correctamente')
     }
     showModal.value = false
     await loadArticulos()
@@ -478,12 +643,13 @@ async function guardarArticulo() {
 }
 
 async function eliminarArticulo(id) {
-  if (!confirm('¿Estás seguro de eliminar este artículo?')) return
+  if (!await confirmAction('Eliminar Artículo', '¿Estás seguro de eliminar este artículo?')) return
   try {
     await api.deleteArticulo(id)
+    showSuccess('Artículo eliminado')
     await loadArticulos()
   } catch (err) {
-    alert('Error al eliminar: ' + err.message)
+    showError('Error al eliminar: ' + err.message)
   }
 }
 
@@ -549,6 +715,9 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  max-height: 120px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
 }
 .dato-asignado {
   display: inline-flex;
@@ -578,6 +747,9 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--space-3);
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: var(--space-2);
 }
 .variant-color-option {
   display: flex;

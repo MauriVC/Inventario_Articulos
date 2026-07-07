@@ -202,7 +202,7 @@ input, select, textarea {
 .form-input-icon .form-input {
   padding-left: 2.5rem;
 }
-.form-input-icon svg {
+.form-input-icon > svg {
   position: absolute;
   left: var(--space-3);
   top: 50%;
@@ -349,8 +349,8 @@ textarea.form-input {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.65);
+  /* Se elimina backdrop-filter porque causa mucho lag en rendimiento al escribir/interactuar */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -364,7 +364,8 @@ textarea.form-input {
   width: 100%;
   max-width: 560px;
   max-height: 90vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   animation: slideUp var(--transition-base);
 }
 .modal-content.modal-lg {
@@ -384,6 +385,7 @@ textarea.form-input {
 }
 .modal-body {
   padding: var(--space-6);
+  overflow-y: auto;
 }
 .modal-footer {
   padding: var(--space-4) var(--space-6);
@@ -516,4 +518,36 @@ textarea.form-input {
 .empty-state p {
   font-size: var(--font-size-md);
   margin-bottom: var(--space-4);
+}
+
+/* ============================================
+   SWEETALERT2 CUSTOM STYLES
+   ============================================ */
+div.swal2-container .swal-custom-popup {
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  font-family: var(--font-family);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--color-gray-100);
+}
+
+div.swal2-container .swal-custom-title {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-gray-800);
+  margin-bottom: var(--space-2);
+}
+
+div.swal2-container .swal-custom-text {
+  font-size: var(--font-size-base);
+  color: var(--color-gray-600);
+}
+
+div.swal2-container .swal-custom-actions {
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+div.swal2-container .swal-custom-actions button {
+  margin: 0;
 }

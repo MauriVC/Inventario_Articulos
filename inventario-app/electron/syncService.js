@@ -44,13 +44,21 @@ async function runSync(envConfig) {
         try {
           let { sql, params } = JSON.parse(op.payload);
           
+          // Fix for MySQL rejecting ISO dates
+          params = params.map(p => {
+            if (typeof p === 'string' && p.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/)) {
+              return p.slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS (UTC)
+            }
+            return p;
+          });
+          
           if (op.operation === 'INSERT' && op.record_id) {
             // Para INSERTs: convertir a INSERT ... ON DUPLICATE KEY UPDATE
             // para que no falle si el registro ya existe en la nube
             const isBulkInsert = sql.toUpperCase().split('VALUES')[1]?.includes('),');
             
             if (!isBulkInsert) {
-              const insertMatch = sql.match(/INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\((.*?)\)\s*VALUES\s*\((.*?)\)/i);
+              const insertMatch = sql.match(/INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/i);
               if (insertMatch) {
                 const table = insertMatch[1];
                 const columns = insertMatch[2];

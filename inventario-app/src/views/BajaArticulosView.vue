@@ -15,24 +15,24 @@
     <div class="mov-form-grid">
       <!-- Datos del Responsable -->
       <div class="card">
-        <div class="card-header"><h3>Datos del Responsable de Baja</h3></div>
+        <div class="card-header"><h3>Datos del Solicitante</h3></div>
         <div class="card-body">
           <div class="flex flex-col gap-4">
             <div class="form-group">
               <label class="form-label">Carnet de Identidad *</label>
               <div class="form-input-icon">
                 <Search :size="16" />
-                <input v-model="responsableCi" type="text" class="form-input" placeholder="Buscar por carnet..." @input="buscarSolicitante" />
+                <input v-model="responsableCi" type="text" class="form-input" placeholder="Buscar por carnet..." @input="responsableCi = responsableCi.replace(/[^0-9]/g, ''); buscarSolicitante()" />
               </div>
               <span class="text-xs text-muted" v-if="solicitanteEncontrado">✓ Solicitante encontrado, datos autocompletados</span>
             </div>
             <div class="form-group">
               <label class="form-label">Nombre Completo *</label>
-              <input v-model="responsable" type="text" class="form-input" placeholder="Nombre y apellidos" />
+              <input v-model="responsable" type="text" class="form-input" placeholder="Nombre y apellidos" @input="responsable = responsable.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Teléfono</label>
-              <input v-model="responsableTelefono" type="text" class="form-input" placeholder="Número de teléfono" />
+              <input v-model="responsableTelefono" type="text" class="form-input" placeholder="Número de teléfono" @input="responsableTelefono = responsableTelefono.replace(/[^0-9]/g, '')" />
             </div>
             <div class="form-group">
               <label class="form-label">Motivo Principal *</label>
@@ -161,7 +161,7 @@
     <!-- Footer Actions -->
     <div class="form-actions mt-6">
       <router-link to="/" class="btn btn-secondary">Cancelar</router-link>
-      <button class="btn btn-warning btn-lg" :disabled="items.length === 0 || !selectedAlmacen || !motivoBaja || !responsable || saving" @click="registrarBaja">
+      <button class="btn btn-warning btn-lg" :disabled="saving" @click="registrarBaja">
         <PackageMinus :size="18" />
         {{ saving ? 'Registrando...' : 'Confirmar Baja' }}
       </button>
@@ -174,6 +174,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Calendar, PackageMinus, X, AlertTriangle } from 'lucide-vue-next'
 import { api } from '@/api'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const router = useRouter()
 
@@ -204,10 +205,6 @@ onMounted(async () => {
   try {
     const resAlm = await api.getAlmacenes()
     almacenes.value = resAlm.data.filter(a => a.estado === 'Activo')
-    if (almacenes.value.length > 0) {
-      selectedAlmacen.value = almacenes.value[0].id
-      await loadAlmacenData()
-    }
   } catch (error) {
     console.error("Error cargando almacenes:", error)
   }
@@ -282,7 +279,7 @@ async function buscarSolicitante() {
 
 function addArticulo(a) {
   if (a.stock <= 0) {
-    alert('Este artículo no tiene stock disponible para dar de baja.')
+    showWarning('Este artículo no tiene stock disponible para dar de baja.')
     return
   }
   const existing = items.value.find(i => i.articulo_item_id === a.articulo_item_id)
@@ -303,13 +300,20 @@ function addArticulo(a) {
 }
 
 async function registrarBaja() {
-  if (items.value.length === 0 || !selectedAlmacen.value) return
+  if (!selectedAlmacen.value) {
+    showWarning("Primero debe seleccionar un almacén para registrar el movimiento.")
+    return
+  }
+  if (items.value.length === 0) {
+    showWarning("Debe agregar al menos un artículo para dar de baja.")
+    return
+  }
   if (!motivoBaja.value || !responsable.value || !responsableCi.value) {
-    alert("Por favor, complete el carnet de identidad, el motivo de baja y el responsable.")
+    showWarning("Por favor, complete el carnet de identidad, el motivo de baja y el responsable.")
     return
   }
 
-  if (!confirm(`¿Está seguro de dar de baja la cantidad especificada de ${items.value.length} artículo(s)? Se reducirá el stock actual.`)) {
+  if (!await confirmAction('Confirmar Baja', `¿Está seguro de dar de baja la cantidad especificada de ${items.value.length} artículo(s)? Se reducirá el stock actual.`)) {
     return
   }
 
@@ -331,10 +335,10 @@ async function registrarBaja() {
     }
 
     await api.createMovimiento(payload)
-    alert("Baja registrada exitosamente.")
+    showSuccess("Baja registrada exitosamente.")
     router.push('/historial')
   } catch (error) {
-    alert("Error al registrar la baja: " + error.message)
+    showError("Error al registrar la baja: " + error.message)
   } finally {
     saving.value = false
   }

@@ -2,6 +2,36 @@
  * Rutas CRUD — Artículos (con items/variantes por color y atributos)
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
+
+function obtenerPrimerasTresLetras(texto) {
+  if (!texto || texto.trim() === '') return '';
+  texto = texto.trim().toUpperCase();
+  const letrasMatch = texto.match(/[A-ZÁÉÍÓÚÑ]/gu);
+  if (!letrasMatch) return '';
+  let letras = letrasMatch.slice(0, 3);
+  while (letras.length < 3) letras.push('X');
+  return letras.join('');
+}
+
+function generarPalabraCodigo(nombre, categoria) {
+  const NOMBRES_ESPECIFICOS = {
+    'CARTA': 'CAR',
+    'MEDIO OFICIO': 'MEOF',
+    'OFICIO': 'OF',
+    'PAQUETE': 'PACK'
+  };
+  const nombreUpper = nombre.trim().toUpperCase();
+  for (const [palabra, codigo] of Object.entries(NOMBRES_ESPECIFICOS)) {
+    if (nombreUpper.includes(palabra)) return codigo;
+  }
+  const letrasNombre = obtenerPrimerasTresLetras(nombre);
+  if (categoria) {
+    const letrasCategoria = obtenerPrimerasTresLetras(categoria);
+    return letrasNombre + letrasCategoria;
+  }
+  return letrasNombre;
+}
 
 async function articulosRoutes(fastify) {
 
@@ -29,12 +59,14 @@ async function articulosRoutes(fastify) {
              a.categoria_id, cat.nombre AS categoria_nombre,
              a.marca_id, mar.nombre AS marca_nombre,
              a.unidad_medida_id, um.nombre AS unidad_nombre, um.abreviatura AS unidad_abreviatura,
-             a.created_at
+             a.created_at,
+             CONCAT(u.nombres, ' ', u.apellidos) AS responsable_nombre
       FROM articulos a
       JOIN almacenes alm ON a.almacen_id = alm.id
       JOIN categorias cat ON a.categoria_id = cat.id
       LEFT JOIN marcas mar ON a.marca_id = mar.id
       JOIN unidad_medidas um ON a.unidad_medida_id = um.id
+      LEFT JOIN usuarios u ON a.created_by = u.id
       WHERE ${where}
       ORDER BY a.nombre
     `, params);
@@ -44,22 +76,26 @@ async function articulosRoutes(fastify) {
     // Cargar variantes (items) y atributos en lote
     const ids = articulos.map(a => a.id);
 
-    const [items] = await pool.query(`
-      SELECT ai.id, ai.articulo_id, ai.stock, ai.estado,
-             c.nombre AS color_nombre, c.codigo_hex
-      FROM articulo_items ai
-      JOIN colores c ON ai.color_id = c.id
-      WHERE ai.articulo_id IN (?)
-      ORDER BY c.nombre
-    `, [ids]);
-
-    const [datosAsignados] = await pool.query(`
-      SELECT ad.articulo_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
-      FROM articulo_datos ad
-      JOIN datos d ON ad.dato_id = d.id
-      JOIN atributos at ON d.atributo_id = at.id
-      WHERE ad.articulo_id IN (?)
-    `, [ids]);
+    const [
+      [items],
+      [datosAsignados]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT ai.id, ai.articulo_id, ai.stock, ai.estado,
+               c.nombre AS color_nombre, c.codigo_hex
+        FROM articulo_items ai
+        JOIN colores c ON ai.color_id = c.id
+        WHERE ai.articulo_id IN (?)
+        ORDER BY c.nombre
+      `, [ids]),
+      pool.query(`
+        SELECT ad.articulo_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
+        FROM articulo_datos ad
+        JOIN datos d ON ad.dato_id = d.id
+        JOIN atributos at ON d.atributo_id = at.id
+        WHERE ad.articulo_id IN (?)
+      `, [ids])
+    ]);
 
     const result = articulos.map(art => ({
       ...art,
@@ -86,19 +122,23 @@ async function articulosRoutes(fastify) {
     `, [id]);
     if (articulos.length === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
 
-    const [variantes] = await pool.query(`
-      SELECT ai.id, ai.stock, ai.estado, c.id AS color_id, c.nombre AS color_nombre, c.codigo_hex
-      FROM articulo_items ai JOIN colores c ON ai.color_id = c.id
-      WHERE ai.articulo_id = ?
-    `, [id]);
-
-    const [atributos] = await pool.query(`
-      SELECT d.id AS dato_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
-      FROM articulo_datos ad
-      JOIN datos d ON ad.dato_id = d.id
-      JOIN atributos at ON d.atributo_id = at.id
-      WHERE ad.articulo_id = ?
-    `, [id]);
+    const [
+      [variantes],
+      [atributos]
+    ] = await Promise.all([
+      pool.query(`
+        SELECT ai.id, ai.stock, ai.estado, c.id AS color_id, c.nombre AS color_nombre, c.codigo_hex
+        FROM articulo_items ai JOIN colores c ON ai.color_id = c.id
+        WHERE ai.articulo_id = ?
+      `, [id]),
+      pool.query(`
+        SELECT d.id AS dato_id, d.nombre AS dato_nombre, at.nombre AS atributo_nombre
+        FROM articulo_datos ad
+        JOIN datos d ON ad.dato_id = d.id
+        JOIN atributos at ON d.atributo_id = at.id
+        WHERE ad.articulo_id = ?
+      `, [id])
+    ]);
 
     return {
       data: {
@@ -121,20 +161,28 @@ async function articulosRoutes(fastify) {
     try {
       await conn.beginTransaction();
 
-      // Generar código auto-incremental ART-YYYY-XXXX
+      // Generar código auto-incremental inteligente
       let finalCodigo = codigo;
       if (!finalCodigo || !finalCodigo.trim()) {
-        const year = new Date().getFullYear();
-        const prefix = `ART-${year}`;
-        const [lastCode] = await conn.query(
-          "SELECT codigo FROM articulos WHERE codigo LIKE ? ORDER BY id DESC LIMIT 1",
+        const [[categoria]] = await conn.query('SELECT nombre FROM categorias WHERE id = ?', [categoria_id]);
+        const categoriaNombre = categoria ? categoria.nombre : '';
+        
+        const prefix = generarPalabraCodigo(nombre, categoriaNombre);
+        
+        const [existentes] = await conn.query(
+          "SELECT codigo FROM articulos WHERE codigo LIKE ?",
           [`${prefix}-%`]
         );
+        
         let nextNum = 1;
-        if (lastCode.length > 0) {
-          const parts = lastCode[0].codigo.split('-');
-          nextNum = parseInt(parts[2], 10) + 1;
+        if (existentes.length > 0) {
+          const numeros = existentes.map(row => {
+            const parts = row.codigo.split('-');
+            return parseInt(parts[parts.length - 1], 10) || 0;
+          });
+          nextNum = Math.max(...numeros) + 1;
         }
+        
         finalCodigo = `${prefix}-${String(nextNum).padStart(4, '0')}`;
       }
 
@@ -157,6 +205,8 @@ async function articulosRoutes(fastify) {
       }
 
       await conn.commit();
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Artículo', descripcion: `Se registró el artículo "${nombre}" (${finalCodigo})`, usuario_id: userId, referencia_id: articuloId });
       return reply.code(201).send({ data: { id: articuloId, nombre } });
     } catch (err) {
       await conn.rollback();
@@ -207,6 +257,8 @@ async function articulosRoutes(fastify) {
       }
 
       await conn.commit();
+      const userId = request.headers['x-user-id'] || null;
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Artículo', descripcion: `Se editó el artículo "${nombre}"`, usuario_id: userId, referencia_id: Number(id) });
       return { data: { id: Number(id), nombre } };
     } catch (err) {
       await conn.rollback();
@@ -245,8 +297,11 @@ async function articulosRoutes(fastify) {
 
   // DELETE /api/articulos/:id
   fastify.delete('/:id', async (request, reply) => {
+    const [[art]] = await pool.query('SELECT nombre, codigo FROM articulos WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM articulos WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Artículo', descripcion: `Se eliminó el artículo "${art ? art.nombre : 'ID:'+request.params.id}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
     return { message: 'Artículo eliminado' };
   });
 }

@@ -2,6 +2,7 @@
  * Rutas CRUD — Almacenes
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
 
 async function almacenesRoutes(fastify) {
 
@@ -12,9 +13,11 @@ async function almacenesRoutes(fastify) {
 
     let query = `
       SELECT a.id, a.nombre, a.ubicacion, a.descripcion, a.estado, a.created_at,
-             COUNT(art.id) AS totalArticulos
+             COUNT(art.id) AS totalArticulos,
+             CONCAT(u.nombres, ' ', u.apellidos) AS responsable_nombre
       FROM almacenes a
       LEFT JOIN articulos art ON art.almacen_id = a.id
+      LEFT JOIN usuarios u ON a.created_by = u.id
     `;
     const params = [];
 
@@ -47,13 +50,15 @@ async function almacenesRoutes(fastify) {
   // POST /api/almacenes — Crear
   fastify.post('/', async (request, reply) => {
     const { nombre, ubicacion, descripcion } = request.body;
+    const userId = request.headers['x-user-id'] || null;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const [result] = await pool.query(
-      'INSERT INTO almacenes (nombre, ubicacion, descripcion) VALUES (?, ?, ?)',
-      [nombre, ubicacion || null, descripcion || null]
+      'INSERT INTO almacenes (nombre, ubicacion, descripcion, created_by) VALUES (?, ?, ?, ?)',
+      [nombre, ubicacion || null, descripcion || null, userId]
     );
-    return reply.code(201).send({ data: { id: result.insertId, nombre, ubicacion, descripcion } });
+    registrarActividad({ tipo: 'REGISTRO', modulo: 'Almacén', descripcion: `Se registró el almacén "${nombre}"`, usuario_id: userId, referencia_id: result.insertId });
+    return reply.code(201).send({ data: { id: result.insertId, nombre, ubicacion, descripcion, created_by: userId } });
   });
 
   // PUT /api/almacenes/:id — Actualizar
@@ -67,14 +72,19 @@ async function almacenesRoutes(fastify) {
       [nombre, ubicacion || null, descripcion || null, estado || 'Activo', id]
     );
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Almacén no encontrado' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'EDICIÓN', modulo: 'Almacén', descripcion: `Se editó el almacén "${nombre}"`, usuario_id: userId, referencia_id: Number(id) });
     return { data: { id: Number(id), nombre, ubicacion, descripcion, estado } };
   });
 
   // DELETE /api/almacenes/:id — Eliminar
   fastify.delete('/:id', async (request, reply) => {
     const { id } = request.params;
+    const [[almacen]] = await pool.query('SELECT nombre FROM almacenes WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM almacenes WHERE id = ?', [id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Almacén no encontrado' });
+    const userId = request.headers['x-user-id'] || null;
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Almacén', descripcion: `Se eliminó el almacén "${almacen ? almacen.nombre : 'ID:'+id}"`, usuario_id: userId, referencia_id: Number(id) });
     return { message: 'Almacén eliminado' };
   });
 }

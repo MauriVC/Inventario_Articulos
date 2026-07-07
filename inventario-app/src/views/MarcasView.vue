@@ -44,6 +44,7 @@ import { ref, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
+import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editing = ref(null)
@@ -69,13 +70,13 @@ async function guardar() {
   if (!form.value.nombre.trim()) { formError.value = 'El nombre es obligatorio'; return }
   saving.value = true; formError.value = ''
   try {
-    if (editing.value) { await api.updateMarca(editing.value.id, form.value) } else { await api.createMarca(form.value) }
+    if (editing.value) { await api.updateMarca(editing.value.id, form.value); showSuccess('Marca actualizada') } else { await api.createMarca(form.value); showSuccess('Marca creada') }
     showModal.value = false; await cargar()
   } catch (err) { formError.value = err.message } finally { saving.value = false }
 }
 
 async function eliminar(id) {
-  if (!confirm('¿Eliminar esta marca?')) return
-  try { await api.deleteMarca(id); await cargar() } catch (err) { alert('Error: ' + err.message) }
+  if (!await confirmAction('Eliminar Marca', '¿Eliminar esta marca?')) return
+  try { await api.deleteMarca(id); showSuccess('Marca eliminada'); await cargar() } catch (err) { showError('Error: ' + err.message) }
 }
 </script>

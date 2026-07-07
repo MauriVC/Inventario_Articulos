@@ -257,7 +257,7 @@ async function handleLogin() {
   font-size: var(--font-size-md);
   border-radius: var(--radius-lg);
 }
-.login-form .form-input-icon svg:first-child {
+.login-form .form-input-icon > svg:first-child {
   left: var(--space-3);
   width: 20px;
   height: 20px;
@@ -279,6 +279,9 @@ async function handleLogin() {
   border-radius: var(--radius-sm);
   transition: color var(--transition-fast);
   z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .login-eye-btn:hover {
   color: var(--color-gray-600);
