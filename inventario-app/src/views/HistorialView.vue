@@ -229,7 +229,7 @@
               Elige el formato en el que deseas descargar el detalle de este registro.
             </template>
           </p>
-          <div class="flex gap-4 justify-center">
+          <div style="display: flex; gap: 1rem; justify-content: center; align-items: center;">
             <button style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 130px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; cursor: pointer; transition: all 0.2s;" @click="handleDownloadPDF" onmouseover="this.style.borderColor='#e53e3e'; this.style.backgroundColor='#fff5f5'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#fff'">
               <div style="background: #fed7d7; padding: 14px; border-radius: 50%; color: #e53e3e; display: flex; align-items: center; justify-content: center;">
                 <FileText :size="28" />
