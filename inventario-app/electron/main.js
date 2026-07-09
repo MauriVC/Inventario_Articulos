@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const { fork, spawn } = require('child_process')
 const { initLocalDb } = require('./localDb')
@@ -148,6 +149,36 @@ app.whenReady().then(async () => {
 
   // 6. Crear ventana
   createWindow();
+
+  // 7. Configurar Auto-Updater (Solo en producción)
+  if (!isDev) {
+    autoUpdater.logger = console;
+    autoUpdater.logger.transports.file.level = 'info';
+    autoUpdater.checkForUpdatesAndNotify();
+
+    autoUpdater.on('update-available', () => {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Actualización Disponible',
+        message: 'Hay una nueva versión de la aplicación. Se está descargando en segundo plano, por favor espera.'
+      });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Actualización Lista',
+        message: 'La actualización se ha descargado y está lista para instalarse. El sistema se reiniciará para aplicar los cambios.',
+        buttons: ['Reiniciar y Actualizar']
+      }).then(() => {
+        autoUpdater.quitAndInstall();
+      });
+    });
+
+    autoUpdater.on('error', (err) => {
+      console.error('[AutoUpdater] Error:', err);
+    });
+  }
 })
 
 app.on('window-all-closed', () => {
