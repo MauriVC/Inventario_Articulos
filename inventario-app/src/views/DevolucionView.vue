@@ -91,9 +91,13 @@
               <Search :size="16" />
               <input v-model="search" type="text" class="form-input" placeholder="Buscar artículo por nombre o código..." />
             </div>
-            <select v-model="selectedCategoria" class="form-select" style="width: 200px;">
+            <select v-model="selectedCategoria" class="form-select" style="width: 170px;">
               <option value="">Todas las categorías</option>
               <option v-for="c in categorias" :key="c" :value="c">{{ c }}</option>
+            </select>
+            <select v-model="selectedAlmacen" class="form-select" style="width: 170px;">
+              <option value="">Todos los almacenes</option>
+              <option v-for="a in almacenesList" :key="a" :value="a">{{ a }}</option>
             </select>
             <select v-model="selectedFiltroDevolucion" class="form-select" style="width: 200px;">
               <option value="">Todos</option>
@@ -183,8 +187,12 @@
               <Search :size="16" />
               <input v-model="searchEntregas" type="text" class="form-input" placeholder="Buscar por artículo, solicitante o código..." />
             </div>
-            <select v-model="filtroEstadoEntrega" class="form-select" style="width: 200px;">
-              <option value="">Todos</option>
+            <select v-model="selectedAlmacenEntregas" class="form-select" style="width: 180px;">
+              <option value="">Todos los almacenes</option>
+              <option v-for="a in almacenesEntregasList" :key="a" :value="a">{{ a }}</option>
+            </select>
+            <select v-model="filtroEstadoEntrega" class="form-select" style="width: 180px;">
+              <option value="">Todos los estados</option>
               <option value="pendiente">Pendientes</option>
               <option value="devuelto">Devueltos</option>
             </select>
@@ -284,6 +292,7 @@ import { confirmAction, showError, showWarning, showSuccess } from '@/utils/aler
 
 const search = ref('')
 const selectedCategoria = ref('')
+const selectedAlmacen = ref('')
 const selectedFiltroDevolucion = ref('')
 const activeTab = ref('articulos')
 const loading = ref(true)
@@ -328,6 +337,11 @@ const categorias = computed(() => {
   return [...cats].sort()
 })
 
+const almacenesList = computed(() => {
+  const alms = new Set(articulos.value.map(a => a.almacen_nombre).filter(Boolean))
+  return [...alms].sort()
+})
+
 const articulosConDevolucion = computed(() => articulos.value.filter(a => a.requiere_devolucion).length)
 const articulosSinDevolucion = computed(() => articulos.value.filter(a => !a.requiere_devolucion).length)
 
@@ -338,14 +352,22 @@ const filteredArticulos = computed(() => {
     const matchDevolucion = !selectedFiltroDevolucion.value ||
       (selectedFiltroDevolucion.value === 'si' && a.requiere_devolucion) ||
       (selectedFiltroDevolucion.value === 'no' && !a.requiere_devolucion)
-    return matchSearch && matchCat && matchDevolucion
+    const matchAlmacen = !selectedAlmacen.value || a.almacen_nombre === selectedAlmacen.value
+    
+    return matchSearch && matchCat && matchDevolucion && matchAlmacen
   })
 })
 
 const searchEntregas = ref('')
 const filtroEstadoEntrega = ref('')
+const selectedAlmacenEntregas = ref('')
 
 const pendientesCount = computed(() => salidasDevolucion.value.filter(s => s.pendiente > 0).length)
+
+const almacenesEntregasList = computed(() => {
+  const alms = new Set(salidasDevolucion.value.map(s => s.almacen_nombre).filter(Boolean))
+  return [...alms].sort()
+})
 
 const filteredSalidas = computed(() => {
   return salidasDevolucion.value.filter(s => {
@@ -356,7 +378,9 @@ const filteredSalidas = computed(() => {
     const matchEstado = !filtroEstadoEntrega.value ||
       (filtroEstadoEntrega.value === 'pendiente' && s.pendiente > 0) ||
       (filtroEstadoEntrega.value === 'devuelto' && s.pendiente <= 0)
-    return matchSearch && matchEstado
+    const matchAlmacen = !selectedAlmacenEntregas.value || s.almacen_nombre === selectedAlmacenEntregas.value
+    
+    return matchSearch && matchEstado && matchAlmacen
   })
 })
 

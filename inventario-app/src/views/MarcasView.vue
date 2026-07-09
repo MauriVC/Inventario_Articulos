@@ -28,7 +28,7 @@
         </table>
       </div>
     </div>
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content">
         <div class="modal-header"><h2>{{ editing ? 'Editar Marca' : 'Nueva Marca' }}</h2><button class="btn btn-ghost btn-icon" @click="showModal = false"><X :size="20" /></button></div>
         <div class="modal-body"><div class="flex flex-col gap-4"><div class="form-group"><label class="form-label">Nombre *</label><input v-model="form.nombre" type="text" class="form-input" placeholder="Ej: Stanley" /></div><div class="form-group"><label class="form-label">Descripción</label><input v-model="form.descripcion" type="text" class="form-input" placeholder="Descripción opcional" /></div></div>

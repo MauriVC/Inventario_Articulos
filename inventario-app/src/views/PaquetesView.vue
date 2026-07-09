@@ -46,7 +46,7 @@
     </div>
 
     <!-- Create Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>Nuevo Paquete</h2>

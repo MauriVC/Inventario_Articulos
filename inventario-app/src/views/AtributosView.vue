@@ -89,7 +89,7 @@
     </div>
 
     <!-- Modal: Crear/Editar Atributo -->
-    <div class="modal-overlay" v-if="showAtributoModal" @click.self="showAtributoModal = false">
+    <div class="modal-overlay" v-if="showAtributoModal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>{{ editingAtributo ? 'Editar Atributo' : 'Nuevo Atributo' }}</h2>
@@ -116,7 +116,7 @@
     </div>
 
     <!-- Modal: Crear Dato (Valor) -->
-    <div class="modal-overlay" v-if="showDatoModal" @click.self="showDatoModal = false">
+    <div class="modal-overlay" v-if="showDatoModal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>Nuevo Valor <span class="text-primary" style="font-weight: 400;">— {{ selectedAtributo?.nombre }}</span></h2>

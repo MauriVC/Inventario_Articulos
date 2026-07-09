@@ -141,7 +141,7 @@
     </div>
 
     <!-- Detail Modal -->
-    <div class="modal-overlay" v-if="selectedArticulo" @click.self="selectedArticulo = null">
+    <div class="modal-overlay" v-if="selectedArticulo">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <div class="flex items-center gap-3">
@@ -239,7 +239,7 @@
     </div>
 
     <!-- Create Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>{{ editingArticulo ? 'Editar Artículo' : 'Nuevo Artículo' }}</h2>

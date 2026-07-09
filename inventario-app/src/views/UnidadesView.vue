@@ -33,7 +33,7 @@
       </div>
     </div>
     <!-- Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>{{ editing ? 'Editar Unidad' : 'Nueva Unidad de Medida' }}</h2>

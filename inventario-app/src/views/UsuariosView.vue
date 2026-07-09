@@ -73,7 +73,7 @@
     </div>
 
     <!-- Create/Edit Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <h2>{{ isEditing ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>

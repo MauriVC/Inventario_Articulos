@@ -77,7 +77,7 @@
     </div>
 
     <!-- Detail Modal -->
-    <div class="modal-overlay" v-if="selectedAlmacenDetalle" @click.self="selectedAlmacenDetalle = null">
+    <div class="modal-overlay" v-if="selectedAlmacenDetalle">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <div class="flex items-center gap-3">
@@ -150,11 +150,46 @@
             </div>
           </div>
         </div>
+        <div class="modal-footer flex items-center justify-between" style="background-color: white; border-top: 1px solid #e2e8f0; padding: var(--space-4);">
+          <button class="btn btn-primary" @click="showExportModal = true">
+            <Download :size="16" /> Descargar Detalle
+          </button>
+          <button class="btn btn-secondary" @click="selectedAlmacenDetalle = null">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" v-if="showExportModal" style="z-index: 1100;">
+      <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+          <h2>Descargar Detalle del Almacén</h2>
+          <button class="btn btn-ghost btn-icon" @click="showExportModal = false"><X :size="20" /></button>
+        </div>
+        <div class="modal-body text-center" style="padding: var(--space-6);">
+          <p class="text-muted mb-6">
+            Elige el formato en el que deseas descargar el detalle de este almacén y sus artículos.
+          </p>
+          <div style="display: flex; gap: 1rem; justify-content: center; align-items: center;">
+            <button style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 130px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; cursor: pointer; transition: all 0.2s;" @click="exportToPDF" onmouseover="this.style.borderColor='#e53e3e'; this.style.backgroundColor='#fff5f5'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#fff'">
+              <div style="background: #fed7d7; padding: 14px; border-radius: 50%; color: #e53e3e; display: flex; align-items: center; justify-content: center;">
+                <FileText :size="28" />
+              </div>
+              <span class="font-bold" style="color: #4a5568;">Documento PDF</span>
+            </button>
+            <button style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 150px; height: 130px; border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; cursor: pointer; transition: all 0.2s;" @click="exportToExcel" onmouseover="this.style.borderColor='#38a169'; this.style.backgroundColor='#f0fff4'" onmouseout="this.style.borderColor='#e2e8f0'; this.style.backgroundColor='#fff'">
+              <div style="background: #c6f6d5; padding: 14px; border-radius: 50%; color: #38a169; display: flex; align-items: center; justify-content: center;">
+                <FileSpreadsheet :size="28" />
+              </div>
+              <span class="font-bold" style="color: #4a5568;">Hoja de Excel</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content">
         <div class="modal-header">
           <h2>{{ editing ? 'Editar Almacén' : 'Nuevo Almacén' }}</h2>
@@ -198,16 +233,20 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, X, Save, Eye, MapPin, Package, User } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, X, Save, Eye, MapPin, Package, User, Download, FileText, FileSpreadsheet } from 'lucide-vue-next'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
+import * as XLSX from 'xlsx'
 import { api } from '@/api'
 import { auth } from '@/auth'
-import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
+import { confirmAction, showError, showWarning, showSuccess, showToast } from '@/utils/alerts'
 
 const showModal = ref(false)
 const editing = ref(null)
 const saving = ref(false)
 const loading = ref(true)
 const formError = ref('')
+const showExportModal = ref(false)
 
 const selectedAlmacenDetalle = ref(null)
 const isLoadingArticulos = ref(false)
@@ -316,5 +355,90 @@ async function eliminar(almacen) {
   } catch (err) {
     showError('Error al eliminar: ' + err.message)
   }
+}
+
+function exportToPDF() {
+  if (!selectedAlmacenDetalle.value) return
+  const doc = new jsPDF()
+  
+  doc.setFontSize(18)
+  doc.text(`Detalle de Almacén: ${selectedAlmacenDetalle.value.nombre}`, 14, 22)
+  
+  doc.setFontSize(11)
+  doc.text(`Ubicación: ${selectedAlmacenDetalle.value.ubicacion || '—'}`, 14, 32)
+  doc.text(`Responsable: ${selectedAlmacenDetalle.value.responsable_nombre || 'Sistema'}`, 14, 38)
+  doc.text(`Estado: ${selectedAlmacenDetalle.value.estado}`, 14, 44)
+  if (selectedAlmacenDetalle.value.descripcion) {
+    doc.text(`Descripción: ${selectedAlmacenDetalle.value.descripcion}`, 14, 50)
+  }
+  
+  doc.setFontSize(14)
+  const startY = selectedAlmacenDetalle.value.descripcion ? 60 : 54
+  doc.text('Artículos en el Almacén', 14, startY)
+  
+  const tableData = almacenArticulos.value.map(art => [
+    art.codigo || '—',
+    art.nombre,
+    art.categoria_nombre || '—',
+    art.stock_total
+  ])
+  
+  autoTable(doc, {
+    startY: startY + 5,
+    head: [['Código', 'Nombre', 'Categoría', 'Stock Total']],
+    body: tableData,
+    theme: 'striped',
+    headStyles: { fillColor: [51, 65, 85] }
+  })
+  
+  doc.save(`Almacen_${selectedAlmacenDetalle.value.nombre.replace(/\s+/g, '_')}_Detalle.pdf`)
+  showExportModal.value = false
+  showToast("El archivo se descargó correctamente.", "pdf")
+}
+
+function exportToExcel() {
+  if (!selectedAlmacenDetalle.value) return
+  
+  const wb = XLSX.utils.book_new()
+  
+  const generalData = [
+    ['Detalle de Almacén', selectedAlmacenDetalle.value.nombre],
+    ['Ubicación', selectedAlmacenDetalle.value.ubicacion || '—'],
+    ['Responsable', selectedAlmacenDetalle.value.responsable_nombre || 'Sistema'],
+    ['Estado', selectedAlmacenDetalle.value.estado],
+    ['Descripción', selectedAlmacenDetalle.value.descripcion || '—'],
+    [],
+    ['Artículos en el Almacén']
+  ]
+  
+  const tableHeaders = ['Código', 'Nombre', 'Categoría', 'Stock Total']
+  const tableData = almacenArticulos.value.map(art => [
+    art.codigo || '—',
+    art.nombre,
+    art.categoria_nombre || '—',
+    art.stock_total
+  ])
+  
+  const wsData = [...generalData, tableHeaders, ...tableData]
+  const ws = XLSX.utils.aoa_to_sheet(wsData)
+  
+  // Ajustar anchos de columna dinámicamente
+  const colWidths = []
+  wsData.forEach(row => {
+    row.forEach((cell, i) => {
+      const cellValue = cell !== null && cell !== undefined ? cell.toString() : ''
+      const cellLength = cellValue.length
+      const width = Math.min(Math.max(cellLength + 4, 12), 60) // mín 12, máx 60
+      if (!colWidths[i] || colWidths[i].wch < width) {
+        colWidths[i] = { wch: width }
+      }
+    })
+  })
+  ws['!cols'] = colWidths
+  
+  XLSX.utils.book_append_sheet(wb, ws, "Detalle")
+  XLSX.writeFile(wb, `Almacen_${selectedAlmacenDetalle.value.nombre.replace(/\s+/g, '_')}_Detalle.xlsx`)
+  showExportModal.value = false
+  showToast("El archivo se descargó correctamente.", "excel")
 }
 </script>

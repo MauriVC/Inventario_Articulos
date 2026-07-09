@@ -32,7 +32,7 @@
       </div>
     </div>
     <!-- Modal -->
-    <div class="modal-overlay" v-if="showModal" @click.self="showModal = false">
+    <div class="modal-overlay" v-if="showModal">
       <div class="modal-content">
         <div class="modal-header"><h2>{{ editing ? 'Editar Categoría' : 'Nueva Categoría' }}</h2><button class="btn btn-ghost btn-icon" @click="showModal = false"><X :size="20" /></button></div>
         <div class="modal-body">

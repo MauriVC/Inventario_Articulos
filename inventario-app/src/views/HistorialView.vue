@@ -116,7 +116,7 @@
     </div>
 
     <!-- Detail Modal -->
-    <div class="modal-overlay" v-if="selectedMov" @click.self="selectedMov = null">
+    <div class="modal-overlay" v-if="selectedMov">
       <div class="modal-content modal-lg">
         <div class="modal-header">
           <div class="flex items-center gap-3">
@@ -214,7 +214,7 @@
     </div>
 
     <!-- Export Modal -->
-    <div class="modal-overlay" v-if="showExportModal" @click.self="showExportModal = false" style="z-index: 1100;">
+    <div class="modal-overlay" v-if="showExportModal" style="z-index: 1100;">
       <div class="modal-content" style="max-width: 450px;">
         <div class="modal-header">
           <h2>{{ exportingFull ? 'Descargar Historial' : 'Descargar Registro' }}</h2>
