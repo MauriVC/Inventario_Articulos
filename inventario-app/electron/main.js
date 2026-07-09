@@ -4,9 +4,12 @@ const { fork, spawn } = require('child_process')
 const { initLocalDb } = require('./localDb')
 const connectionManager = require('./connectionManager')
 const { runSync } = require('./syncService')
-require('dotenv').config({ path: path.join(__dirname, '../../inventario-backend/.env') })
-
 const isDev = !app.isPackaged
+
+const envPath = isDev 
+  ? path.join(__dirname, '../../inventario-backend/.env')
+  : path.join(process.resourcesPath, 'backend/.env')
+require('dotenv').config({ path: envPath })
 
 // Disable hardware acceleration to prevent UI freezes (input freezing) on some Windows machines
 app.disableHardwareAcceleration()
@@ -228,23 +231,30 @@ function startNewBackend(isOnline) {
   };
 
   if (mode === 'local') {
-    // ═══════════════════════════════════════════════════════════════
-    // MODO LOCAL: Usar el Node.js del SISTEMA (no el de Electron)
-    // Razón: better-sqlite3 tiene binarios nativos (.node) que se
-    // compilan para una versión específica de Node.js. El fork()
-    // de Electron usa su propio Node.js interno (MODULE_VERSION 130)
-    // pero better-sqlite3 fue compilado para el Node.js del sistema
-    // (MODULE_VERSION 127). Usar spawn con /usr/bin/node resuelve esto.
-    // ═══════════════════════════════════════════════════════════════
-    const systemNode = process.platform === 'win32' ? 'node' : '/usr/bin/node';
-    console.log(`[Main] Usando Node.js del sistema: ${systemNode}`);
-    backendProcess = spawn(systemNode, [backendPath], {
-      env: backendEnv,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-    // Redirigir stdout/stderr del proceso hijo a la consola de Electron
-    backendProcess.stdout.on('data', (data) => console.log(`[BACKEND-LOCAL] ${data.toString().trim()}`));
-    backendProcess.stderr.on('data', (data) => console.error(`[BACKEND-LOCAL] ${data.toString().trim()}`));
+    if (isDev) {
+      // ═══════════════════════════════════════════════════════════════
+      // MODO LOCAL EN DESARROLLO: Usar el Node.js del SISTEMA
+      // Razón: better-sqlite3 está compilado para el Node.js del sistema.
+      // ═══════════════════════════════════════════════════════════════
+      const systemNode = process.platform === 'win32' ? 'node' : '/usr/bin/node';
+      console.log(`[Main] Usando Node.js del sistema: ${systemNode}`);
+      backendProcess = spawn(systemNode, [backendPath], {
+        env: backendEnv,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      backendProcess.stdout.on('data', (data) => console.log(`[BACKEND-LOCAL] ${data.toString().trim()}`));
+      backendProcess.stderr.on('data', (data) => console.error(`[BACKEND-LOCAL] ${data.toString().trim()}`));
+    } else {
+      // ═══════════════════════════════════════════════════════════════
+      // MODO LOCAL EN PRODUCCIÓN: Usar fork() (Electron Node)
+      // Razón: Al crear el .exe, better-sqlite3 se recompila específicamente
+      // para la versión V8 de Electron, por lo que fork() funciona perfecto.
+      // ═══════════════════════════════════════════════════════════════
+      console.log('[Main] Usando Node interno de Electron (Modo Prod)');
+      backendProcess = fork(backendPath, [], { env: backendEnv, stdio: 'pipe' });
+      backendProcess.stdout.on('data', (data) => console.log(`[BACKEND-PROD] ${data.toString().trim()}`));
+      backendProcess.stderr.on('data', (data) => console.error(`[BACKEND-PROD] ${data.toString().trim()}`));
+    }
   } else {
     // MODO CLOUD: fork() funciona bien porque MySQL no usa binarios nativos problemáticos
     backendProcess = fork(backendPath, [], { env: backendEnv });

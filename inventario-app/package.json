@@ -10,7 +10,41 @@
     "dist": "vite build && electron-builder",
     "build": "vite build",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder",
+    "rebuild-sqlite": "cd ../inventario-backend && npm rebuild better-sqlite3 --runtime=electron --target=33.0.0 --dist-url=https://electronjs.org/headers",
+    "prebuild": "npm run rebuild-sqlite"
+  },
+  "build": {
+    "appId": "com.inventario.uecorazonnuevo",
+    "productName": "Sistema de Almacenes",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../inventario-backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!node_modules/.cache/**/*",
+          "!node_modules/nodemon/**/*",
+          "!tests/**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
   },
   "dependencies": {
     "@vueuse/core": "^11.0.0",

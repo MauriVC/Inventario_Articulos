@@ -25,4 +25,5 @@ dist-ssr
 
 # Electron
 dist-electron/
+dist_electron/
 release/
