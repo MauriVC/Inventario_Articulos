@@ -3,19 +3,24 @@
  */
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
 
 async function usuariosRoutes(fastify) {
 
+  // GET /api/usuarios/permisos — Listar todos los permisos disponibles
+  fastify.get('/permisos', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async () => {
+    const [rows] = await pool.query('SELECT * FROM permisos ORDER BY modulo, nombre');
+    return { data: rows };
+  });
+
   // GET /api/usuarios — Listar usuarios (sin contraseña)
-  fastify.get('/', async () => {
+  fastify.get('/', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async () => {
     const [rows] = await pool.query(`
       SELECT u.id, u.carnet, u.nombres, u.apellidos, u.telefono, u.rol, u.estado, u.created_at,
-             GROUP_CONCAT(a.nombre SEPARATOR '||') AS almacenes_nombres,
-             GROUP_CONCAT(ua.almacen_id SEPARATOR ',') AS almacenes_ids
+             (SELECT GROUP_CONCAT(a.nombre SEPARATOR '||') FROM usuario_almacen ua JOIN almacenes a ON ua.almacen_id = a.id WHERE ua.usuario_id = u.id) AS almacenes_nombres,
+             (SELECT GROUP_CONCAT(almacen_id SEPARATOR ',') FROM usuario_almacen WHERE usuario_id = u.id) AS almacenes_ids,
+             (SELECT GROUP_CONCAT(permiso_id SEPARATOR ',') FROM usuario_permiso WHERE usuario_id = u.id) AS permisos_ids
       FROM usuarios u
-      LEFT JOIN usuario_almacen ua ON u.id = ua.usuario_id
-      LEFT JOIN almacenes a ON ua.almacen_id = a.id
-      GROUP BY u.id
       ORDER BY u.nombres
     `);
 
@@ -24,23 +29,22 @@ async function usuariosRoutes(fastify) {
       almacenes: r.almacenes_nombres ? r.almacenes_nombres.split('||').map((n, i) => ({
         id: parseInt(r.almacenes_ids.split(',')[i]),
         nombre: n
-      })) : []
+      })) : [],
+      permisos: r.permisos_ids ? r.permisos_ids.split(',').map(id => parseInt(id)) : []
     }));
 
     return { data };
   });
 
   // GET /api/usuarios/:id
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
     const [rows] = await pool.query(`
       SELECT u.id, u.carnet, u.nombres, u.apellidos, u.telefono, u.rol, u.estado, u.created_at,
-             GROUP_CONCAT(a.nombre SEPARATOR '||') AS almacenes_nombres,
-             GROUP_CONCAT(ua.almacen_id SEPARATOR ',') AS almacenes_ids
+             (SELECT GROUP_CONCAT(a.nombre SEPARATOR '||') FROM usuario_almacen ua JOIN almacenes a ON ua.almacen_id = a.id WHERE ua.usuario_id = u.id) AS almacenes_nombres,
+             (SELECT GROUP_CONCAT(almacen_id SEPARATOR ',') FROM usuario_almacen WHERE usuario_id = u.id) AS almacenes_ids,
+             (SELECT GROUP_CONCAT(permiso_id SEPARATOR ',') FROM usuario_permiso WHERE usuario_id = u.id) AS permisos_ids
       FROM usuarios u
-      LEFT JOIN usuario_almacen ua ON u.id = ua.usuario_id
-      LEFT JOIN almacenes a ON ua.almacen_id = a.id
       WHERE u.id = ?
-      GROUP BY u.id
     `, [request.params.id]);
 
     if (rows.length === 0) return reply.code(404).send({ error: 'Usuario no encontrado' });
@@ -51,14 +55,15 @@ async function usuariosRoutes(fastify) {
       almacenes: r.almacenes_nombres ? r.almacenes_nombres.split('||').map((n, i) => ({
         id: parseInt(r.almacenes_ids.split(',')[i]),
         nombre: n
-      })) : []
+      })) : [],
+      permisos: r.permisos_ids ? r.permisos_ids.split(',').map(id => parseInt(id)) : []
     };
     return { data };
   });
 
   // POST /api/usuarios — Crear usuario
-  fastify.post('/', async (request, reply) => {
-    const { carnet, nombres, apellidos, telefono, contrasena, rol, almacenes = [] } = request.body;
+  fastify.post('/', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
+    const { carnet, nombres, apellidos, telefono, contrasena, rol, almacenes = [], permisos = [] } = request.body;
     if (!carnet || !nombres || !apellidos || !contrasena) {
       return reply.code(400).send({ error: 'carnet, nombres, apellidos y contrasena son obligatorios' });
     }
@@ -83,6 +88,15 @@ async function usuariosRoutes(fastify) {
         );
       }
 
+      // Insertar permisos
+      if (permisos && permisos.length > 0) {
+        const pValues = permisos.map(permiso_id => [newUserId, permiso_id]);
+        await connection.query(
+          'INSERT INTO usuario_permiso (usuario_id, permiso_id) VALUES ?',
+          [pValues]
+        );
+      }
+
       await connection.commit();
       const creatorId = request.headers['x-user-id'] || null;
       registrarActividad({ tipo: 'REGISTRO', modulo: 'Usuario', descripcion: `Se registró el usuario "${nombres} ${apellidos}" (${rol || 'Usuario'})`, usuario_id: creatorId, referencia_id: newUserId });
@@ -96,8 +110,8 @@ async function usuariosRoutes(fastify) {
   });
 
   // PUT /api/usuarios/:id
-  fastify.put('/:id', async (request, reply) => {
-    const { carnet, nombres, apellidos, telefono, rol, estado, almacenes = [], contrasena } = request.body;
+  fastify.put('/:id', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
+    const { carnet, nombres, apellidos, telefono, rol, estado, almacenes = [], permisos = [], contrasena } = request.body;
     if (!carnet || !nombres || !apellidos) {
       return reply.code(400).send({ error: 'carnet, nombres y apellidos son obligatorios' });
     }
@@ -134,6 +148,16 @@ async function usuariosRoutes(fastify) {
         );
       }
 
+      // Actualizar permisos
+      await connection.query('DELETE FROM usuario_permiso WHERE usuario_id = ?', [request.params.id]);
+      if (permisos && permisos.length > 0) {
+        const pValues = permisos.map(permiso_id => [request.params.id, permiso_id]);
+        await connection.query(
+          'INSERT INTO usuario_permiso (usuario_id, permiso_id) VALUES ?',
+          [pValues]
+        );
+      }
+
       await connection.commit();
       const editorId = request.headers['x-user-id'] || null;
       registrarActividad({ tipo: 'EDICIÓN', modulo: 'Usuario', descripcion: `Se editó el usuario "${nombres} ${apellidos}"`, usuario_id: editorId, referencia_id: Number(request.params.id) });
@@ -147,7 +171,7 @@ async function usuariosRoutes(fastify) {
   });
 
   // DELETE /api/usuarios/:id
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
     const [[user]] = await pool.query('SELECT nombres, apellidos FROM usuarios WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM usuarios WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Usuario no encontrado' });

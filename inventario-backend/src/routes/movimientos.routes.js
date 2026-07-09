@@ -235,6 +235,12 @@ async function movimientosRoutes(fastify) {
       return reply.code(400).send({ error: 'tipo debe ser ENTRADA, SALIDA o BAJA' });
     }
 
+    // Validación de permisos dinámica
+    const reqPerm = tipo === 'ENTRADA' ? 'REGISTRAR_ENTRADA' : (tipo === 'SALIDA' ? 'REGISTRAR_SALIDA' : 'REGISTRAR_BAJA');
+    const { requirePermission } = require('../middleware/auth');
+    await requirePermission(reqPerm)(request, reply);
+    if (reply.sent) return;
+
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();

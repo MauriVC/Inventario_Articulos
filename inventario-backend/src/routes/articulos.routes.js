@@ -3,6 +3,7 @@
  */
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
 
 function obtenerPrimerasTresLetras(texto) {
   if (!texto || texto.trim() === '') return '';
@@ -150,7 +151,7 @@ async function articulosRoutes(fastify) {
     };
   });
   // POST /api/articulos — Crear artículo con variantes y atributos
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: requirePermission('CREAR_ARTICULO') }, async (request, reply) => {
     const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, variantes, dato_ids } = request.body;
 
     if (!nombre || !almacen_id || !categoria_id || !unidad_medida_id) {
@@ -217,7 +218,7 @@ async function articulosRoutes(fastify) {
   });
 
   // PUT /api/articulos/:id — Actualizar datos básicos, atributos y variantes
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', { preHandler: requirePermission('EDITAR_ARTICULO') }, async (request, reply) => {
     const { id } = request.params;
     const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
@@ -269,7 +270,7 @@ async function articulosRoutes(fastify) {
   });
 
   // PATCH /api/articulos/:id/estado — Cambiar estado de un artículo
-  fastify.patch('/:id/estado', async (request, reply) => {
+  fastify.patch('/:id/estado', { preHandler: requirePermission('EDITAR_ARTICULO') }, async (request, reply) => {
     const { id } = request.params;
     const { estado } = request.body;
     if (!estado) return reply.code(400).send({ error: 'Estado es obligatorio' });
@@ -284,7 +285,7 @@ async function articulosRoutes(fastify) {
   });
 
   // PATCH /api/articulos/:id/devolucion — Toggle requiere_devolucion
-  fastify.patch('/:id/devolucion', async (request, reply) => {
+  fastify.patch('/:id/devolucion', { preHandler: requirePermission('EDITAR_ARTICULO') }, async (request, reply) => {
     const { id } = request.params;
     const { requiere_devolucion } = request.body;
     const [result] = await pool.query(
@@ -296,7 +297,21 @@ async function articulosRoutes(fastify) {
   });
 
   // DELETE /api/articulos/:id
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', { preHandler: requirePermission('ELIMINAR_ARTICULO') }, async (request, reply) => {
+    // 1. Validar si el artículo tiene movimientos (historial)
+    const [movs] = await pool.query(`
+      SELECT 1 FROM movimiento_detalles md
+      JOIN articulo_items ai ON md.articulo_item_id = ai.id
+      WHERE ai.articulo_id = ?
+      LIMIT 1
+    `, [request.params.id]);
+
+    if (movs.length > 0) {
+      return reply.code(400).send({ 
+        error: 'No se puede eliminar el artículo porque ya tiene movimientos (entradas/salidas) registrados en el historial. Para dejar de usarlo, edite el artículo y cambie su estado a "Inactivo".' 
+      });
+    }
+
     const [[art]] = await pool.query('SELECT nombre, codigo FROM articulos WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM articulos WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });

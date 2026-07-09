@@ -21,6 +21,29 @@ CREATE TABLE IF NOT EXISTS usuarios (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
+-- 1B. TABLA DE PERMISOS
+-- ============================================
+CREATE TABLE IF NOT EXISTS permisos (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  nombre        VARCHAR(100) NOT NULL UNIQUE,
+  descripcion   VARCHAR(255),
+  modulo        VARCHAR(50) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================
+-- 1C. TABLA PIVOTE: USUARIO ↔ PERMISOS
+-- ============================================
+CREATE TABLE IF NOT EXISTS usuario_permiso (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  usuario_id    INT NOT NULL,
+  permiso_id    INT NOT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_usuario_permiso (usuario_id, permiso_id),
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+  FOREIGN KEY (permiso_id) REFERENCES permisos(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================
 -- 2. TABLA DE ALMACENES
 -- ============================================
 CREATE TABLE IF NOT EXISTS almacenes (
@@ -263,7 +286,7 @@ CREATE TABLE IF NOT EXISTS movimiento_detalles (
   observacion       VARCHAR(255) COMMENT 'Observación individual por artículo (ej: estado del material devuelto)',
   created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (movimiento_id) REFERENCES movimientos(id) ON DELETE CASCADE,
-  FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id) ON DELETE CASCADE
+  FOREIGN KEY (articulo_item_id) REFERENCES articulo_items(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
@@ -271,13 +294,35 @@ CREATE TABLE IF NOT EXISTS movimiento_detalles (
 -- ============================================
 
 -- Color por defecto "S/N" para artículos sin color
-INSERT INTO colores (nombre, codigo_hex) VALUES ('S/N', '#E9ECEF');
+INSERT IGNORE INTO colores (nombre, codigo_hex) VALUES ('S/N', '#E9ECEF');
 
 -- Unidades de medida iniciales
-INSERT INTO usuarios (carnet, nombres, apellidos, telefono, contrasena, rol, estado) VALUES
+INSERT IGNORE INTO usuarios (carnet, nombres, apellidos, telefono, contrasena, rol, estado) VALUES
   ('00000001', 'Super', 'Administrador', '70000001', 'admin123', 'SuperAdministrador', 'Activo');
 
-INSERT INTO unidad_medidas (nombre, abreviatura) VALUES
+-- Permisos iniciales
+INSERT IGNORE INTO permisos (nombre, descripcion, modulo) VALUES
+  ('VER_ALMACENES', 'Ver lista de almacenes', 'Almacenes'),
+  ('CREAR_ALMACEN', 'Crear un almacén', 'Almacenes'),
+  ('EDITAR_ALMACEN', 'Editar un almacén', 'Almacenes'),
+  ('ELIMINAR_ALMACEN', 'Eliminar un almacén', 'Almacenes'),
+  ('VER_ARTICULOS', 'Ver catálogo de artículos', 'Artículos'),
+  ('CREAR_ARTICULO', 'Crear un artículo', 'Artículos'),
+  ('EDITAR_ARTICULO', 'Editar un artículo', 'Artículos'),
+  ('ELIMINAR_ARTICULO', 'Eliminar un artículo', 'Artículos'),
+  ('VER_MOVIMIENTOS', 'Ver movimientos y stock', 'Movimientos'),
+  ('REGISTRAR_ENTRADA', 'Registrar entrada de stock', 'Movimientos'),
+  ('REGISTRAR_SALIDA', 'Registrar salida de stock', 'Movimientos'),
+  ('REGISTRAR_BAJA', 'Dar de baja artículos', 'Movimientos'),
+  ('VER_REPORTES', 'Acceso a los reportes y descargas', 'Reportes'),
+  ('GESTIONAR_USUARIOS', 'Administrar usuarios y accesos', 'Usuarios'),
+  ('GESTIONAR_CONFIGURACION', 'Administrar categorías, marcas, atributos', 'Configuración');
+
+-- Asignar todos los permisos al SuperAdministrador inicial (id=1)
+INSERT IGNORE INTO usuario_permiso (usuario_id, permiso_id)
+SELECT 1, id FROM permisos;
+
+INSERT IGNORE INTO unidad_medidas (nombre, abreviatura) VALUES
   ('Unidad', 'Ud'),
   ('Litro', 'L'),
   ('Kilogramo', 'Kg'),
@@ -289,13 +334,13 @@ INSERT INTO unidad_medidas (nombre, abreviatura) VALUES
   ('Bolsa', 'Bls');
 
 -- Atributos iniciales de ejemplo
-INSERT INTO atributos (nombre) VALUES
+INSERT IGNORE INTO atributos (nombre) VALUES
   ('Acabado'),
   ('Tamaño'),
   ('Tipo de Hoja');
 
 -- Datos (valores) para los atributos de ejemplo
-INSERT INTO datos (atributo_id, nombre) VALUES
+INSERT IGNORE INTO datos (atributo_id, nombre) VALUES
   -- Acabado
   (1, 'Anillado'),
   (1, 'Anillado Metálico'),

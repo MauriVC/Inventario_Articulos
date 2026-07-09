@@ -128,6 +128,7 @@ export const api = {
   createUsuario: (data) => apiFetch('/usuarios', { method: 'POST', body: data }),
   updateUsuario: (id, data) => apiFetch(`/usuarios/${id}`, { method: 'PUT', body: data }),
   deleteUsuario: (id) => apiFetch(`/usuarios/${id}`, { method: 'DELETE' }),
+  getPermisos: () => apiFetch('/usuarios/permisos'),
 
   // Dashboard
   getDashboardStats: (year = '', month = '', date = '') => {

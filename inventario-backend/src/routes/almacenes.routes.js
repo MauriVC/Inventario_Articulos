@@ -3,6 +3,7 @@
  */
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
 
 async function almacenesRoutes(fastify) {
 
@@ -48,7 +49,7 @@ async function almacenesRoutes(fastify) {
   });
 
   // POST /api/almacenes — Crear
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: requirePermission('CREAR_ALMACEN') }, async (request, reply) => {
     const { nombre, ubicacion, descripcion } = request.body;
     const userId = request.headers['x-user-id'] || null;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
@@ -62,7 +63,7 @@ async function almacenesRoutes(fastify) {
   });
 
   // PUT /api/almacenes/:id — Actualizar
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', { preHandler: requirePermission('EDITAR_ALMACEN') }, async (request, reply) => {
     const { id } = request.params;
     const { nombre, ubicacion, descripcion, estado } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
@@ -78,7 +79,7 @@ async function almacenesRoutes(fastify) {
   });
 
   // DELETE /api/almacenes/:id — Eliminar
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', { preHandler: requirePermission('ELIMINAR_ALMACEN') }, async (request, reply) => {
     const { id } = request.params;
     const [[almacen]] = await pool.query('SELECT nombre FROM almacenes WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM almacenes WHERE id = ?', [id]);

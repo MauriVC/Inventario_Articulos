@@ -386,6 +386,8 @@ textarea.form-input {
 .modal-body {
   padding: var(--space-6);
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 .modal-footer {
   padding: var(--space-4) var(--space-6);

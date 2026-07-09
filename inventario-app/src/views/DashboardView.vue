@@ -67,7 +67,7 @@
               <h3 class="font-bold text-gray-800">Actividad del Día</h3>
             </div>
             <div class="card-body" style="padding-bottom: 0; display: flex; flex-direction: column; flex: 1;">
-              <div class="chart-bars-wrapper">
+              <div class="chart-bars-wrapper" ref="chartWrapperRef">
                 <div class="chart-bars">
                   <div class="chart-bar-group" v-for="item in chartData" :key="item.label">
                     <div class="chart-bar-container">
@@ -222,7 +222,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import {
   Package, Warehouse, ArrowUpFromLine, ArrowDownToLine,
   PackagePlus, ClipboardList, ChevronRight, RotateCcw
@@ -266,6 +266,8 @@ onMounted(async () => {
   await loadDashboardData()
 })
 
+const chartWrapperRef = ref(null)
+
 async function loadDashboardData() {
   loading.value = true
   try {
@@ -281,6 +283,32 @@ async function loadDashboardData() {
     console.error("Error al cargar datos del dashboard:", error)
   } finally {
     loading.value = false
+    
+    // Scroll automático en el gráfico de actividad hacia la última hora con actividad (o la hora actual)
+    nextTick(() => {
+      if (chartWrapperRef.value && chartData.value && chartData.value.length > 0) {
+        let targetHour = new Date().getHours() // Default a la hora actual
+        
+        // Buscar la última hora en la que hubo alguna actividad
+        const activeHours = chartData.value
+          .filter(d => (d.entrada || d.salida || (d.baja||0) || (d.registro||0) || (d.edicion||0) || (d.borrado||0)) > 0)
+          .map(d => parseInt(d.periodo || d.label.split(':')[0], 10))
+          .filter(h => !isNaN(h))
+          
+        if (activeHours.length > 0) {
+          targetHour = Math.max(...activeHours)
+        }
+        
+        // Calcular desplazamiento: mostramos la hora destino con 1 hora de margen a la izquierda
+        const offsetHour = Math.max(0, targetHour - 1)
+        const scrollAmount = (chartWrapperRef.value.scrollWidth / 24) * offsetHour
+        
+        chartWrapperRef.value.scrollTo({
+          left: scrollAmount,
+          behavior: 'smooth'
+        })
+      }
+    })
   }
 }
 

@@ -1,7 +1,7 @@
 /**
  * Auth Store — Estado global de autenticación
  * Usa reactive de Vue para compartir estado entre componentes
- * Persiste la sesión en localStorage para que sobreviva recargas
+ * Persiste la sesión en sessionStorage para que el ejecutable pida login al abrir
  */
 import { reactive, computed } from 'vue'
 import { api } from '@/api'
@@ -11,7 +11,7 @@ const STORAGE_KEY = 'inventario_user'
 // Cargar sesión persistida
 function loadStoredUser() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = sessionStorage.getItem(STORAGE_KEY)
     return stored ? JSON.parse(stored) : null
   } catch {
     return null
@@ -35,9 +35,16 @@ export const auth = {
   userId: computed(() => state.user?.id || null),
 
   // ─── Verificación de roles ───
+  // ─── Verificación de roles ───
   isSuperAdmin: computed(() => state.user?.rol === 'SuperAdministrador'),
   isAdmin: computed(() => state.user?.rol === 'Administrador' || state.user?.rol === 'SuperAdministrador'),
   isUsuario: computed(() => state.user?.rol === 'Usuario'),
+
+  // ─── Verificación de permisos ───
+  hasPermission: (permiso) => {
+    if (state.user?.rol === 'SuperAdministrador') return true;
+    return state.user?.permisos?.includes(permiso) || false;
+  },
 
   // ─── Acciones ───
   async login(carnet, contrasena) {
@@ -47,7 +54,7 @@ export const auth = {
     try {
       const res = await api.login(carnet, contrasena)
       state.user = res.data
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(res.data))
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(res.data))
       return true
     } catch (err) {
       state.loginError = err.message
@@ -60,6 +67,6 @@ export const auth = {
   logout() {
     state.user = null
     state.loginError = ''
-    localStorage.removeItem(STORAGE_KEY)
+    sessionStorage.removeItem(STORAGE_KEY)
   }
 }

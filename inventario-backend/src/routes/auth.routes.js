@@ -26,6 +26,16 @@ async function authRoutes(fastify) {
       return reply.code(403).send({ error: 'Usuario inactivo. Contacte al administrador.' });
     }
 
+    // Obtener los permisos del usuario
+    const [permsRows] = await pool.query(
+      `SELECT p.nombre 
+       FROM permisos p
+       INNER JOIN usuario_permiso up ON p.id = up.permiso_id
+       WHERE up.usuario_id = ?`,
+      [user.id]
+    );
+    const permisos = permsRows.map(row => row.nombre);
+
     // TODO: Generar JWT token para producción
     return {
       data: {
@@ -33,7 +43,8 @@ async function authRoutes(fastify) {
         carnet: user.carnet,
         nombres: user.nombres,
         apellidos: user.apellidos,
-        rol: user.rol
+        rol: user.rol,
+        permisos: permisos
       },
       message: 'Login exitoso'
     };

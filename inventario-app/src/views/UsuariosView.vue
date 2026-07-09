@@ -79,7 +79,7 @@
           <h2>{{ isEditing ? 'Editar Usuario' : 'Nuevo Usuario' }}</h2>
           <button class="btn btn-ghost btn-icon" @click="closeModal"><X :size="20" /></button>
         </div>
-        <form @submit.prevent="saveUsuario">
+        <form @submit.prevent="saveUsuario" class="flex flex-col flex-1" style="min-height: 0;">
           <div class="modal-body">
             <div class="grid-2 mb-4">
               <div class="form-group">
@@ -119,20 +119,39 @@
             <!-- Warehouse Assignment -->
             <div class="almacen-assignment mt-6">
               <h3 class="font-semibold mb-2" style="color: var(--color-gray-700); font-size: var(--font-size-base);">Asignar Almacenes</h3>
-              <p class="text-sm text-muted mb-3">Selecciona los almacenes a los que tendrá acceso este usuario. Es opcional.</p>
+              <p class="text-sm text-muted mb-3">Selecciona los almacenes a los que tendrá acceso este usuario.</p>
               
-              <div class="flex flex-col gap-2" v-if="almacenesDisponibles.length > 0">
+              <div class="grid-2 gap-2" v-if="almacenesDisponibles.length > 0">
                 <label class="almacen-checkbox" v-for="a in almacenesDisponibles" :key="a.id">
                   <input type="checkbox" :value="a.id" v-model="form.almacenes" />
                   <span class="almacen-checkbox-custom"></span>
                   <div class="almacen-checkbox-info">
-                    <span class="font-medium">{{ a.nombre }}</span>
+                    <span class="font-medium" style="font-size: 13px">{{ a.nombre }}</span>
                     <span class="text-xs text-muted">{{ a.ubicacion || 'Sin ubicación' }}</span>
                   </div>
                 </label>
               </div>
               <div v-else class="text-sm text-muted">
                 No hay almacenes disponibles para asignar.
+              </div>
+            </div>
+
+            <!-- Permissions Assignment -->
+            <div class="almacen-assignment mt-6" v-if="form.rol !== 'SuperAdministrador'">
+              <h3 class="font-semibold mb-2" style="color: var(--color-gray-700); font-size: var(--font-size-base);">Asignar Permisos</h3>
+              <p class="text-sm text-muted mb-3">Selecciona los permisos específicos que tendrá este usuario.</p>
+              
+              <div v-for="(perms, modulo) in permisosPorModulo" :key="modulo" class="mb-4">
+                <h4 class="font-medium text-sm mb-2" style="color: var(--color-primary-dark)">{{ modulo }}</h4>
+                <div class="grid-2 gap-2">
+                  <label class="almacen-checkbox" v-for="p in perms" :key="p.id">
+                    <input type="checkbox" :value="p.id" v-model="form.permisos" />
+                    <span class="almacen-checkbox-custom"></span>
+                    <div class="almacen-checkbox-info">
+                      <span class="font-medium" style="font-size: 13px">{{ p.descripcion }}</span>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -149,7 +168,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Plus, Pencil, Trash2, X, Save, UserMinus, UserCheck } from 'lucide-vue-next'
 import { api } from '@/api'
 import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
@@ -161,6 +180,16 @@ const isEditing = ref(false)
 
 const usuarios = ref([])
 const almacenesDisponibles = ref([])
+const permisosDisponibles = ref([])
+
+const permisosPorModulo = computed(() => {
+  const grupos = {}
+  for (const p of permisosDisponibles.value) {
+    if (!grupos[p.modulo]) grupos[p.modulo] = []
+    grupos[p.modulo].push(p)
+  }
+  return grupos
+})
 
 const form = ref({
   id: null,
@@ -170,13 +199,15 @@ const form = ref({
   telefono: '',
   contrasena: '',
   rol: 'Usuario',
-  almacenes: [] // Array of IDs
+  almacenes: [],
+  permisos: []
 })
 
 onMounted(async () => {
   await Promise.all([
     loadUsuarios(),
-    loadAlmacenes()
+    loadAlmacenes(),
+    loadPermisos()
   ])
 })
 
@@ -201,6 +232,15 @@ async function loadAlmacenes() {
   }
 }
 
+async function loadPermisos() {
+  try {
+    const res = await api.getPermisos()
+    permisosDisponibles.value = res.data
+  } catch (err) {
+    console.error('Error cargando permisos:', err)
+  }
+}
+
 function rolBadgeClass(rol) {
   if (rol === 'SuperAdministrador') return 'badge-dark'
   if (rol === 'Administrador') return 'badge-medium'
@@ -217,7 +257,8 @@ function openCreateModal() {
     telefono: '',
     contrasena: '',
     rol: 'Usuario',
-    almacenes: []
+    almacenes: [],
+    permisos: []
   }
   showModal.value = true
 }
@@ -232,7 +273,8 @@ function openEditModal(usuario) {
     telefono: usuario.telefono || '',
     contrasena: '', // Empty unless changing
     rol: usuario.rol,
-    almacenes: usuario.almacenes.map(a => a.id) // Map to array of IDs
+    almacenes: usuario.almacenes.map(a => a.id),
+    permisos: usuario.permisos || []
   }
   showModal.value = true
 }
@@ -279,7 +321,8 @@ async function toggleEstado(usuario) {
       telefono: usuario.telefono,
       rol: usuario.rol,
       estado: newEstado,
-      almacenes: usuario.almacenes.map(a => a.id)
+      almacenes: usuario.almacenes.map(a => a.id),
+      permisos: usuario.permisos || []
     })
     await loadUsuarios()
     showSuccess(`Usuario ${newEstado === 'Inactivo' ? 'inhabilitado' : 'habilitado'}`)

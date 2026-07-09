@@ -23,11 +23,11 @@
           <LayoutDashboard :size="20" />
           <span class="link-text">Dashboard</span>
         </router-link>
-        <router-link to="/almacenes" class="sidebar-link" :class="{ active: $route.name === 'Almacenes' }" :title="isCollapsed ? 'Almacenes' : ''">
+        <router-link v-if="auth.hasPermission('VER_ALMACENES')" to="/almacenes" class="sidebar-link" :class="{ active: $route.name === 'Almacenes' }" :title="isCollapsed ? 'Almacenes' : ''">
           <Warehouse :size="20" />
           <span class="link-text">Almacenes</span>
         </router-link>
-        <router-link to="/articulos" class="sidebar-link" :class="{ active: $route.name === 'Articulos' }" :title="isCollapsed ? 'Artículos' : ''">
+        <router-link v-if="auth.hasPermission('VER_ARTICULOS')" to="/articulos" class="sidebar-link" :class="{ active: $route.name === 'Articulos' }" :title="isCollapsed ? 'Artículos' : ''">
           <Package :size="20" />
           <span class="link-text">Artículos</span>
         </router-link>
@@ -40,18 +40,18 @@
 
       <div class="sidebar-section">
         <span class="sidebar-section-label">Movimientos</span>
-        <router-link to="/movimientos/salida" class="sidebar-link" :class="{ active: $route.name === 'MovimientoSalida' }" :title="isCollapsed ? 'Salida' : ''">
+        <router-link v-if="auth.hasPermission('REGISTRAR_SALIDA')" to="/movimientos/salida" class="sidebar-link" :class="{ active: $route.name === 'MovimientoSalida' }" :title="isCollapsed ? 'Salida' : ''">
           <ArrowUpFromLine :size="20" />
           <span class="link-text">Salida</span>
           <span class="sidebar-badge badge-sal" v-show="!isCollapsed">SAL</span>
         </router-link>
-        <router-link to="/movimientos/entrada" class="sidebar-link" :class="{ active: $route.name === 'MovimientoEntrada' }" :title="isCollapsed ? 'Entrada' : ''">
+        <router-link v-if="auth.hasPermission('REGISTRAR_ENTRADA')" to="/movimientos/entrada" class="sidebar-link" :class="{ active: $route.name === 'MovimientoEntrada' }" :title="isCollapsed ? 'Entrada' : ''">
           <ArrowDownToLine :size="20" />
           <span class="link-text">Entrada</span>
           <span class="sidebar-badge badge-ent" v-show="!isCollapsed">ENT</span>
         </router-link>
 
-        <router-link to="/movimientos/baja" class="sidebar-link" :class="{ active: $route.name === 'BajaArticulos' }" :title="isCollapsed ? 'Baja' : ''">
+        <router-link v-if="auth.hasPermission('REGISTRAR_BAJA')" to="/movimientos/baja" class="sidebar-link" :class="{ active: $route.name === 'BajaArticulos' }" :title="isCollapsed ? 'Baja' : ''">
           <PackageMinus :size="20" />
           <span class="link-text">Baja</span>
           <span class="sidebar-badge badge-baj" v-show="!isCollapsed">BAJ</span>
@@ -60,39 +60,39 @@
 
       <div class="sidebar-section">
         <span class="sidebar-section-label">Catálogos</span>
-        <router-link to="/categorias" class="sidebar-link" :class="{ active: $route.name === 'Categorias' }" :title="isCollapsed ? 'Categorías' : ''">
+        <router-link v-if="auth.hasPermission('GESTIONAR_CONFIGURACION')" to="/categorias" class="sidebar-link" :class="{ active: $route.name === 'Categorias' }" :title="isCollapsed ? 'Categorías' : ''">
           <FolderTree :size="20" />
           <span class="link-text">Categorías</span>
         </router-link>
-        <router-link to="/marcas" class="sidebar-link" :class="{ active: $route.name === 'Marcas' }" :title="isCollapsed ? 'Marcas' : ''">
+        <router-link v-if="auth.hasPermission('GESTIONAR_CONFIGURACION')" to="/marcas" class="sidebar-link" :class="{ active: $route.name === 'Marcas' }" :title="isCollapsed ? 'Marcas' : ''">
           <Tag :size="20" />
           <span class="link-text">Marcas</span>
         </router-link>
-        <router-link to="/unidades" class="sidebar-link" :class="{ active: $route.name === 'Unidades' }" :title="isCollapsed ? 'Unidades' : ''">
+        <router-link v-if="auth.hasPermission('GESTIONAR_CONFIGURACION')" to="/unidades" class="sidebar-link" :class="{ active: $route.name === 'Unidades' }" :title="isCollapsed ? 'Unidades' : ''">
           <Ruler :size="20" />
           <span class="link-text">Unidades de Medida</span>
         </router-link>
-        <router-link to="/colores" class="sidebar-link" :class="{ active: $route.name === 'Colores' }" :title="isCollapsed ? 'Colores' : ''">
+        <router-link v-if="auth.hasPermission('GESTIONAR_CONFIGURACION')" to="/colores" class="sidebar-link" :class="{ active: $route.name === 'Colores' }" :title="isCollapsed ? 'Colores' : ''">
           <Palette :size="20" />
           <span class="link-text">Colores</span>
         </router-link>
-        <router-link to="/atributos" class="sidebar-link" :class="{ active: $route.name === 'Atributos' }" :title="isCollapsed ? 'Atributos' : ''">
+        <router-link v-if="auth.hasPermission('GESTIONAR_CONFIGURACION')" to="/atributos" class="sidebar-link" :class="{ active: $route.name === 'Atributos' }" :title="isCollapsed ? 'Atributos' : ''">
           <Tags :size="20" />
           <span class="link-text">Atributos</span>
         </router-link>
-        <router-link to="/devolucion" class="sidebar-link" :class="{ active: $route.name === 'Devolucion' }" :title="isCollapsed ? 'Devolución' : ''">
+        <router-link v-if="auth.hasPermission('VER_MOVIMIENTOS')" to="/devolucion" class="sidebar-link" :class="{ active: $route.name === 'Devolucion' }" :title="isCollapsed ? 'Devolución' : ''">
           <RotateCcw :size="20" />
           <span class="link-text">Adm. Devolución</span>
         </router-link>
       </div>
 
-      <div class="sidebar-section" v-if="isAdmin || isSuperAdmin">
+      <div class="sidebar-section" v-if="auth.hasPermission('VER_REPORTES') || auth.hasPermission('GESTIONAR_USUARIOS')">
         <span class="sidebar-section-label">Administración</span>
-        <router-link to="/historial" class="sidebar-link" :class="{ active: $route.name === 'Historial' }" v-if="isAdmin" :title="isCollapsed ? 'Historial' : ''">
+        <router-link to="/historial" class="sidebar-link" :class="{ active: $route.name === 'Historial' }" v-if="auth.hasPermission('VER_REPORTES')" :title="isCollapsed ? 'Historial' : ''">
           <ClipboardList :size="20" />
           <span class="link-text">Historial</span>
         </router-link>
-        <router-link to="/usuarios" class="sidebar-link" :class="{ active: $route.name === 'Usuarios' }" v-if="isSuperAdmin" :title="isCollapsed ? 'Usuarios' : ''">
+        <router-link to="/usuarios" class="sidebar-link" :class="{ active: $route.name === 'Usuarios' }" v-if="auth.hasPermission('GESTIONAR_USUARIOS')" :title="isCollapsed ? 'Usuarios' : ''">
           <Users :size="20" />
           <span class="link-text">Usuarios</span>
         </router-link>

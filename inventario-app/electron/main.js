@@ -41,6 +41,7 @@ function createWindow() {
 
   // Show window when ready to avoid visual flash
   mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize()
     mainWindow.show()
   })
 
