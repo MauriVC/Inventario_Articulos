@@ -251,6 +251,34 @@ function createSchema() {
       FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS permisos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre TEXT NOT NULL UNIQUE,
+      descripcion TEXT,
+      modulo TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS usuario_permiso (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      usuario_id INTEGER NOT NULL,
+      permiso_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(usuario_id, permiso_id),
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+      FOREIGN KEY (permiso_id) REFERENCES permisos(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS actividad_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      modulo TEXT NOT NULL,
+      descripcion TEXT,
+      usuario_id INTEGER,
+      referencia_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+    );
+
     -- Tabla especial para manejar la sincronización
     CREATE TABLE IF NOT EXISTS sync_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -269,7 +297,7 @@ function createSchema() {
   const tables = [
     'almacenes', 'usuarios', 'categorias', 'marcas', 'unidad_medidas',
     'colores', 'atributos', 'datos', 'articulos', 'articulo_items',
-    'movimientos', 'movimiento_detalles', 'paquetes'
+    'movimientos', 'movimiento_detalles', 'paquetes', 'actividad_log'
   ];
   
   for (const table of tables) {

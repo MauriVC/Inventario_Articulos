@@ -23,7 +23,7 @@ const SYNC_TABLES = [
   'almacenes', 'usuarios', 'categorias', 'marcas', 'unidad_medidas',
   'colores', 'atributos', 'datos', 'articulos', 'articulo_items',
   'articulo_datos', 'movimientos', 'movimiento_detalles', 'paquetes',
-  'paquete_contenido', 'usuario_almacen'
+  'paquete_contenido', 'usuario_almacen', 'actividad_log'
 ];
 
 async function runSync(envConfig) {

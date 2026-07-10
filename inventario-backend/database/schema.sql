@@ -290,6 +290,20 @@ CREATE TABLE IF NOT EXISTS movimiento_detalles (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================
+-- 16. TABLA DE ACTIVIDAD LOG (Historial CRUD)
+-- ============================================
+CREATE TABLE IF NOT EXISTS actividad_log (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  tipo          ENUM('REGISTRO', 'EDICIÓN', 'BORRADO') NOT NULL,
+  modulo        VARCHAR(100) NOT NULL,
+  descripcion   TEXT,
+  usuario_id    INT DEFAULT NULL,
+  referencia_id INT DEFAULT NULL,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ============================================
 -- DATOS INICIALES
 -- ============================================
 
