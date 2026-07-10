@@ -96,7 +96,56 @@ function splitTopLevelArgs(str) {
   return args;
 }
 
+function enqueueSyncOperation(originalSql, originalParams, info) {
+  const mode = process.env.DB_MODE || 'cloud';
+  if (mode !== 'local' || originalSql.toUpperCase().includes('SYNC_QUEUE')) return;
+
+  const operation = originalSql.trim().toUpperCase().startsWith('INSERT') ? 'INSERT'
+    : originalSql.trim().toUpperCase().startsWith('UPDATE') ? 'UPDATE'
+    : 'DELETE';
+  const match = originalSql.match(/(?:INTO|UPDATE|FROM)\s+([a-zA-Z0-9_]+)/i);
+  const tableName = match ? match[1] : 'unknown';
+
+  const safeParams = originalParams.map(p => (p instanceof Date) ? p.toISOString() : p);
+  const stmtQueue = sqliteDb.prepare(
+    `INSERT INTO sync_queue (table_name, operation, record_id, payload) VALUES (?, ?, ?, ?)`
+  );
+
+  const isBulk = originalSql.includes('VALUES ?')
+    && safeParams.length === 1
+    && Array.isArray(safeParams[0])
+    && safeParams[0].length > 0;
+
+  if (isBulk && operation === 'INSERT') {
+    const rows = safeParams[0];
+    const lastId = Number(info.lastInsertRowid);
+    const firstId = lastId - rows.length + 1;
+    const colMatch = originalSql.match(/INSERT\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([\s\S]*?)\)\s*VALUES\s*\?/i);
+    if (!colMatch) return;
+
+    const table = colMatch[1];
+    const columns = colMatch[2];
+    const placeholders = new Array(rows[0].length).fill('?').join(', ');
+
+    rows.forEach((row, i) => {
+      const rowSql = `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`;
+      stmtQueue.run(table, 'INSERT', firstId + i, JSON.stringify({ sql: rowSql, params: row }));
+    });
+    return;
+  }
+
+  stmtQueue.run(
+    tableName,
+    operation,
+    info.lastInsertRowid || 0,
+    JSON.stringify({ sql: originalSql, params: safeParams })
+  );
+}
+
 function executeSqliteQuery(sql, params = []) {
+  const originalSql = sql;
+  const originalParams = [...params];
+
   // 1. Reemplazar funciones específicas de MySQL
   // IMPORTANTE: DATE_ADD debe ir ANTES de HOUR para que HOUR(datetime(...)) funcione bien
   sql = replaceBalancedFunction(sql, 'DATE_ADD', (inner) => {
@@ -182,21 +231,10 @@ function executeSqliteQuery(sql, params = []) {
     } else {
       const stmt = sqliteDb.prepare(sql);
       const info = stmt.run(...safeParams);
-      
-      // Registrar en sync_queue para subirlo a la nube después
-      const DB_MODE = process.env.DB_MODE || 'cloud';
-      if (DB_MODE === 'local' && !sql.toUpperCase().includes('SYNC_QUEUE')) {
-        const match = sql.match(/(?:INTO|UPDATE|FROM)\s+([a-zA-Z0-9_]+)/i);
-        const tableName = match ? match[1] : 'unknown';
-        const operation = sql.trim().toUpperCase().startsWith('INSERT') ? 'INSERT' 
-                        : sql.trim().toUpperCase().startsWith('UPDATE') ? 'UPDATE' 
-                        : 'DELETE';
-        try {
-          const stmtQueue = sqliteDb.prepare(`INSERT INTO sync_queue (table_name, operation, record_id, payload) VALUES (?, ?, ?, ?)`);
-          stmtQueue.run(tableName, operation, info.lastInsertRowid || 0, JSON.stringify({ sql, params: safeParams }));
-        } catch (queueErr) {
-          console.error('[SQLite] Error al encolar operación:', queueErr);
-        }
+      try {
+        enqueueSyncOperation(originalSql, originalParams, info);
+      } catch (queueErr) {
+        console.error('[SQLite] Error al encolar operación:', queueErr);
       }
       
       return [{ insertId: info.lastInsertRowid, affectedRows: info.changes }, null];
@@ -268,6 +306,18 @@ async function testConnection() {
   console.log('[Database] Conectado a MySQL (Nube)');
 }
 
-module.exports = { pool, testConnection };
+function closeSqlite() {
+  if (sqliteDb) {
+    try {
+      sqliteDb.pragma('wal_checkpoint(TRUNCATE)');
+      sqliteDb.close();
+    } catch (e) {
+      console.error('[Database] Error cerrando SQLite:', e.message);
+    }
+    sqliteDb = null;
+  }
+}
+
+module.exports = { pool, testConnection, closeSqlite };
 
 

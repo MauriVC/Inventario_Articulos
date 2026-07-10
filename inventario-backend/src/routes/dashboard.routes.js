@@ -117,7 +117,7 @@ async function dashboardRoutes(fastify) {
           FROM actividad_log al
           LEFT JOIN usuarios u ON al.usuario_id = u.id
           WHERE 1=1 ${roleFilterAct}
-        ORDER BY fecha DESC LIMIT 6
+        ORDER BY datetime(fecha) DESC, id DESC LIMIT 6
       `, movParams),
                   
       // 8. Devoluciones pendientes

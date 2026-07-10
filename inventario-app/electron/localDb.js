@@ -62,6 +62,16 @@ function getDb() {
   return db;
 }
 
+function checkpointWal() {
+  if (!db) return;
+  try {
+    db.pragma('wal_checkpoint(TRUNCATE)');
+    console.log('[SQLite] WAL checkpoint completado.');
+  } catch (e) {
+    console.warn('[SQLite] No se pudo hacer WAL checkpoint:', e.message);
+  }
+}
+
 function createSchema() {
   const createTablesSql = `
     CREATE TABLE IF NOT EXISTS almacenes (
@@ -313,5 +323,6 @@ function createSchema() {
 
 module.exports = {
   initLocalDb,
-  getDb
+  getDb,
+  checkpointWal
 };

@@ -264,7 +264,7 @@ async function movimientosRoutes(fastify) {
          solicitante_ci, solicitante_nombre, solicitante_telefono,
          destino_procedencia, motivo_baja, observacion)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [codigo, tipo, es_devolucion ? 1 : 0, almacen_id, 1, paquete_id || null,
+        [codigo, tipo, es_devolucion ? 1 : 0, almacen_id, request.headers['x-user-id'] || 1, paquete_id || null,
          solicitante_ci || null, solicitante_nombre || null, solicitante_telefono || null,
          destino_procedencia || null, motivo_baja || null, observacion || null]
       );

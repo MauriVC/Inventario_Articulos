@@ -2,7 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const fastify = require('fastify')({ logger: true });
-const { testConnection } = require('./src/config/database');
+const { testConnection, closeSqlite } = require('./src/config/database');
 const cors = require('@fastify/cors');
 const registerRoutes = require('./src/routes');
 
@@ -52,5 +52,17 @@ const start = async () => {
     process.exit(1);
   }
 };
+
+async function shutdown() {
+  try { await fastify.close(); } catch (e) { /* ignore */ }
+  closeSqlite();
+  process.exit(0);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+process.on('message', (msg) => {
+  if (msg === 'shutdown') shutdown();
+});
 
 start();

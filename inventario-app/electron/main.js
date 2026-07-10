@@ -70,14 +70,19 @@ connectionManager.on('status-changed', async (onlineStatus) => {
   
   if (onlineStatus) {
     // ── VOLVIÓ EL INTERNET ──
-    // 1. Apagar backend LOCAL
+    // 1. Apagar backend LOCAL (con cierre limpio de SQLite)
     await killBackendAsync();
-    
+    await new Promise(resolve => setTimeout(resolve, 400));
+
     // 2. Sincronizar: subir cambios offline → descargar datos frescos
     try {
       console.log('[Main] Subiendo cambios offline y descargando datos de la nube...');
-      await runSync(process.env);
-      console.log('[Main] Sincronización completada.');
+      const result = await runSync(process.env);
+      if (result && !result.success) {
+        console.error('[Main] La sincronización no se completó. Los datos locales se conservaron.');
+      } else {
+        console.log('[Main] Sincronización completada.');
+      }
     } catch (err) {
       console.error('[Main] Error durante la sincronización:', err.message);
     }
@@ -229,7 +234,7 @@ function killBackendAsync() {
     });
     
     try {
-      backendProcess.kill();
+      backendProcess.kill('SIGTERM');
     } catch (e) {
       backendProcess = null;
       currentMode = null;
