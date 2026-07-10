@@ -19,6 +19,7 @@ async function initCloudPool(envConfig) {
 }
 
 const SYNC_TABLES = [
+  'permisos', 'usuario_permiso',
   'almacenes', 'usuarios', 'categorias', 'marcas', 'unidad_medidas',
   'colores', 'atributos', 'datos', 'articulos', 'articulo_items',
   'articulo_datos', 'movimientos', 'movimiento_detalles', 'paquetes',
@@ -65,10 +66,18 @@ async function runSync(envConfig) {
                 const placeholders = insertMatch[3];
                 const colList = columns.split(',').map(c => c.trim());
                 
-                // Inyectar ID local + ON DUPLICATE KEY UPDATE
-                const updateCols = colList.map(c => `${c} = VALUES(${c})`).join(', ');
+                // Inyectar ID local + ON DUPLICATE KEY UPDATE (Evitar VALUES() que falla en MySQL 8.4)
+                const updateCols = colList.map(c => `${c} = ?`).join(', ');
                 sql = `INSERT INTO ${table} (id, ${columns}) VALUES (?, ${placeholders}) ON DUPLICATE KEY UPDATE ${updateCols}`;
+                
+                // Clonar parámetros originales para la parte de UPDATE
+                const originalParams = [...params];
+                
+                // Primero va el ID para el INSERT (id, ...)
                 params.unshift(op.record_id);
+                
+                // Al final van los parámetros repetidos para el ON DUPLICATE KEY UPDATE
+                params.push(...originalParams);
               }
             }
           } else if (op.operation === 'UPDATE') {
