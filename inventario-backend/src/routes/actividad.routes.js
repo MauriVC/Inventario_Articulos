@@ -111,7 +111,7 @@ async function actividadRoutes(fastify) {
         FROM actividad_log al
         LEFT JOIN usuarios u ON al.usuario_id = u.id
         WHERE ${actWhere}
-      ORDER BY datetime(fecha) DESC, id DESC
+      ORDER BY fecha DESC, id DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -207,7 +207,7 @@ async function actividadRoutes(fastify) {
           al.created_at AS fecha
         FROM actividad_log al
         LEFT JOIN usuarios u ON al.usuario_id = u.id
-      ORDER BY datetime(fecha) DESC, id DESC
+      ORDER BY fecha DESC, id DESC
       LIMIT 8
     `;
 

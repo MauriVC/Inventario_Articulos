@@ -174,6 +174,8 @@ function executeSqliteQuery(sql, params = []) {
   });
   // DATE() ya es compatible en SQLite; no transformar (un regex naive rompe DATE(datetime(...)))
   sql = sql.replace(/FOR UPDATE/gi, ""); // No existe en SQLite, ignorarlo
+  // ORDER BY fecha: en SQLite las fechas son texto, usar datetime() para ordenar correctamente
+  sql = sql.replace(/\bORDER\s+BY\s+fecha\b/gi, 'ORDER BY datetime(fecha)');
 
   // 2. Manejar Bulk Inserts (VALUES ?)
   if (sql.includes('VALUES ?') && params.length === 1 && Array.isArray(params[0]) && params[0].length > 0) {
