@@ -62,6 +62,40 @@ function replaceBalancedFunction(sql, funcName, transformFn) {
   return sql;
 }
 
+function splitTopLevelArgs(str) {
+  const args = [];
+  let current = '';
+  let depth = 0;
+  let inString = false;
+  let stringChar = '';
+
+  for (let i = 0; i < str.length; i++) {
+    const c = str[i];
+    if ((c === "'" || c === '"') && !inString) {
+      inString = true;
+      stringChar = c;
+      current += c;
+    } else if (inString && c === stringChar) {
+      inString = false;
+      current += c;
+    } else if (!inString && c === '(') {
+      depth++;
+      current += c;
+    } else if (!inString && c === ')') {
+      depth--;
+      current += c;
+    } else if (!inString && c === ',' && depth === 0) {
+      args.push(current.trim());
+      current = '';
+    } else {
+      current += c;
+    }
+  }
+
+  if (current.trim()) args.push(current.trim());
+  return args;
+}
+
 function executeSqliteQuery(sql, params = []) {
   // 1. Reemplazar funciones específicas de MySQL
   // IMPORTANTE: DATE_ADD debe ir ANTES de HOUR para que HOUR(datetime(...)) funcione bien
@@ -76,7 +110,20 @@ function executeSqliteQuery(sql, params = []) {
   sql = replaceBalancedFunction(sql, 'HOUR', (inner) => {
     return `CAST(strftime('%H', ${inner}) AS INTEGER)`;
   });
-  sql = sql.replace(/DATE\((.*?)\)/gi, "DATE($1)"); // SQLite ya soporta DATE()
+  // GROUP_CONCAT antes que CONCAT (evitar que CONCAT matchee dentro de GROUP_CONCAT)
+  sql = replaceBalancedFunction(sql, 'GROUP_CONCAT', (inner) => {
+    const sepMatch = inner.match(/^(.*)\s+SEPARATOR\s+'([^']*)'\s*$/i);
+    if (sepMatch) {
+      return `GROUP_CONCAT(${sepMatch[1].trim()}, '${sepMatch[2]}')`;
+    }
+    return `GROUP_CONCAT(${inner})`;
+  });
+  // CONCAT(a, b, ...) → a || b || ... (SQLite no tiene CONCAT)
+  sql = replaceBalancedFunction(sql, 'CONCAT', (inner) => {
+    const args = splitTopLevelArgs(inner);
+    return args.join(' || ');
+  });
+  // DATE() ya es compatible en SQLite; no transformar (un regex naive rompe DATE(datetime(...)))
   sql = sql.replace(/FOR UPDATE/gi, ""); // No existe en SQLite, ignorarlo
 
   // 2. Manejar Bulk Inserts (VALUES ?)
