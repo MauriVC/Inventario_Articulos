@@ -14,8 +14,9 @@
     "dist": "vite build && electron-builder",
     "build": "vite build",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder",
-    "rebuild-sqlite": "cd ../inventario-backend && npm rebuild better-sqlite3 --runtime=electron --target=33.0.0 --dist-url=https://electronjs.org/headers",
+    "rebuild-sqlite": "cd ../inventario-backend && npx @electron/rebuild -f -w better-sqlite3 -v 33.0.0",
+    "rebuild-sqlite-local": "cd ../inventario-backend && npm rebuild better-sqlite3",
+    "electron:build": "npm run rebuild-sqlite && vite build && electron-builder && npm run rebuild-sqlite-local",
     "prebuild": "npm run rebuild-sqlite"
   },
   "build": {
