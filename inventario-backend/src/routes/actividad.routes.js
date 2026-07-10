@@ -170,6 +170,41 @@ async function actividadRoutes(fastify) {
       `, [id]);
 
       if (!act) return reply.code(404).send({ error: 'Actividad no encontrada' });
+      
+      // Enriquecer datos si es un Artículo y no ha sido borrado físicamente
+      if (act.modulo === 'Artículo' && act.referencia_id && act.tipo !== 'BORRADO') {
+        const [[articulo]] = await pool.query(`
+          SELECT a.codigo, a.nombre, a.descripcion, a.estado, a.requiere_devolucion,
+                 alm.nombre AS almacen_nombre, cat.nombre AS categoria_nombre,
+                 um.nombre AS unidad_nombre
+          FROM articulos a
+          LEFT JOIN almacenes alm ON a.almacen_id = alm.id
+          LEFT JOIN categorias cat ON a.categoria_id = cat.id
+          LEFT JOIN unidad_medidas um ON a.unidad_medida_id = um.id
+          WHERE a.id = ?
+        `, [act.referencia_id]);
+
+        if (articulo) {
+          act.articulo = articulo;
+          const [variantes] = await pool.query(`
+            SELECT c.nombre AS color_nombre, c.codigo_hex, ai.stock
+            FROM articulo_items ai
+            JOIN colores c ON ai.color_id = c.id
+            WHERE ai.articulo_id = ?
+          `, [act.referencia_id]);
+          act.articulo.variantes = variantes;
+          
+          const [atributos] = await pool.query(`
+            SELECT at.nombre AS atributo_nombre, d.nombre AS dato_nombre
+            FROM articulo_datos ad
+            JOIN datos d ON ad.dato_id = d.id
+            JOIN atributos at ON d.atributo_id = at.id
+            WHERE ad.articulo_id = ?
+          `, [act.referencia_id]);
+          act.articulo.atributos = atributos;
+        }
+      }
+
       return { data: act };
     }
   });

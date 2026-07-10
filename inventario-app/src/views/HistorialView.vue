@@ -200,6 +200,64 @@
                   <p class="font-medium">{{ selectedMov.usuario_nombre || 'Sistema' }}</p>
                 </div>
               </div>
+              
+              <!-- NUEVA SECCIÓN PARA MOSTRAR DETALLES EXTRA (EJ. ARTÍCULOS) -->
+              <div v-if="selectedMov.articulo" class="mt-2 pt-4" style="border-top: 1px solid var(--color-gray-200);">
+                <div class="flex items-center gap-2 mb-3">
+                  <h3 class="font-semibold" style="font-size: var(--font-size-base); color: var(--color-gray-700);">Información Actual del Artículo</h3>
+                  <span class="badge badge-info" style="font-size: 10px;">En tiempo real</span>
+                </div>
+                
+                <div class="grid-2 mb-4">
+                  <div><span class="text-sm text-muted">Código</span><p class="font-semibold">{{ selectedMov.articulo.codigo || '—' }}</p></div>
+                  <div><span class="text-sm text-muted">Nombre</span><p class="font-medium">{{ selectedMov.articulo.nombre }}</p></div>
+                  <div><span class="text-sm text-muted">Almacén</span><p class="font-medium">{{ selectedMov.articulo.almacen_nombre || '—' }}</p></div>
+                  <div><span class="text-sm text-muted">Categoría</span><p class="font-medium">{{ selectedMov.articulo.categoria_nombre || '—' }}</p></div>
+                  <div>
+                    <span class="text-sm text-muted">Estado Actual</span>
+                    <p class="font-medium mt-1">
+                      <span class="badge" :class="selectedMov.articulo.estado === 'Activo' ? 'badge-success' : 'badge-danger'" style="padding: 2px 8px; font-size: 11px;">
+                        {{ selectedMov.articulo.estado }}
+                      </span>
+                    </p>
+                  </div>
+                  <div><span class="text-sm text-muted">Devolución</span><p class="font-medium">{{ selectedMov.articulo.requiere_devolucion ? 'Obligatoria' : 'No requiere' }}</p></div>
+                </div>
+
+                <div v-if="selectedMov.articulo.atributos && selectedMov.articulo.atributos.length > 0" class="mb-4">
+                  <span class="text-sm text-muted block mb-2">Atributos Asignados</span>
+                  <div class="flex flex-wrap gap-2">
+                    <span class="badge badge-dark" v-for="(attr, i) in selectedMov.articulo.atributos" :key="i" style="font-weight: 500;">
+                      <span style="opacity: 0.7; margin-right: 4px;">{{ attr.atributo_nombre }}:</span> {{ attr.dato_nombre }}
+                    </span>
+                  </div>
+                </div>
+
+                <h4 class="font-medium mb-2 text-sm text-gray-600">Variantes y Stock Actual</h4>
+                <div class="table-wrapper">
+                  <table class="table" style="font-size: 13px;">
+                    <thead>
+                      <tr><th style="padding: 8px 12px;">Color</th><th class="text-center" style="padding: 8px 12px;">Stock Disponible</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(v, i) in selectedMov.articulo.variantes" :key="i">
+                        <td style="padding: 8px 12px;">
+                          <div class="flex items-center gap-2">
+                            <span class="color-dot" :style="{ background: v.codigo_hex, width: '12px', height: '12px', display: 'inline-block', borderRadius: '50%', border: '1px solid #e2e8f0' }"></span>
+                            {{ v.color_nombre }}
+                          </div>
+                        </td>
+                        <td class="font-semibold text-center" style="padding: 8px 12px;">
+                          {{ v.stock }} <span class="text-muted" style="font-weight: 400; font-size: 12px;">{{ selectedMov.articulo.unidad_nombre || 'unid' }}</span>
+                        </td>
+                      </tr>
+                      <tr v-if="!selectedMov.articulo.variantes || selectedMov.articulo.variantes.length === 0">
+                        <td colspan="2" class="text-center p-3 text-muted">No hay variantes registradas.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </template>
 
@@ -452,6 +510,44 @@ function descargarPDF() {
     const splitDesc = doc.splitTextToSize(mov.descripcion, 180)
     doc.text(splitDesc, 14, 74)
     
+    let currentY = 74 + (splitDesc.length * 6);
+
+    if (mov.articulo) {
+      currentY += 8;
+      doc.setFontSize(12);
+      doc.setTextColor(40, 40, 40);
+      doc.text('Información Actual del Artículo:', 14, currentY);
+      currentY += 8;
+
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Código: ${mov.articulo.codigo || '—'}`, 14, currentY);
+      doc.text(`Nombre: ${mov.articulo.nombre}`, 80, currentY);
+      currentY += 6;
+      doc.text(`Almacén: ${mov.articulo.almacen_nombre || '—'}`, 14, currentY);
+      doc.text(`Categoría: ${mov.articulo.categoria_nombre || '—'}`, 80, currentY);
+      currentY += 6;
+      doc.text(`Estado: ${mov.articulo.estado}`, 14, currentY);
+      doc.text(`Devolución: ${mov.articulo.requiere_devolucion ? 'Obligatoria' : 'No requiere'}`, 80, currentY);
+      currentY += 10;
+
+      if (mov.articulo.variantes && mov.articulo.variantes.length > 0) {
+        const tableColumn = ["Color", "Stock Disponible"];
+        const tableRows = mov.articulo.variantes.map(v => [
+          v.color_nombre,
+          `${v.stock} ${mov.articulo.unidad_nombre || 'unid'}`
+        ]);
+        
+        autoTable(doc, {
+          startY: currentY,
+          head: [tableColumn],
+          body: tableRows,
+          theme: 'grid',
+          headStyles: { fillColor: [52, 73, 94] }
+        });
+      }
+    }
+    
     doc.save(`Actividad_${mov.tipo}_${mov.id}.pdf`)
   }
   
@@ -511,6 +607,34 @@ function descargarExcel() {
       ["RESPONSABLE", mov.usuario_nombre || 'Sistema'],
       ["DESCRIPCIÓN", mov.descripcion]
     ]
+
+    if (mov.articulo) {
+      resumen.push([]);
+      resumen.push(["INFORMACIÓN ACTUAL DEL ARTÍCULO"]);
+      resumen.push(["CÓDIGO", mov.articulo.codigo || '—']);
+      resumen.push(["NOMBRE", mov.articulo.nombre]);
+      resumen.push(["ALMACÉN", mov.articulo.almacen_nombre || '—']);
+      resumen.push(["CATEGORÍA", mov.articulo.categoria_nombre || '—']);
+      resumen.push(["ESTADO", mov.articulo.estado]);
+      resumen.push(["DEVOLUCIÓN", mov.articulo.requiere_devolucion ? 'Obligatoria' : 'No requiere']);
+      
+      if (mov.articulo.atributos && mov.articulo.atributos.length > 0) {
+        const attrStrings = mov.articulo.atributos.map(a => `${a.atributo_nombre}: ${a.dato_nombre}`);
+        resumen.push(["ATRIBUTOS", attrStrings.join(", ")]);
+      }
+
+      resumen.push([]);
+      resumen.push(["VARIANTES Y STOCK ACTUAL"]);
+      resumen.push(["Color", "Stock Disponible"]);
+      
+      if (mov.articulo.variantes && mov.articulo.variantes.length > 0) {
+        mov.articulo.variantes.forEach(v => {
+          resumen.push([v.color_nombre, `${v.stock} ${mov.articulo.unidad_nombre || 'unid'}`]);
+        });
+      } else {
+        resumen.push(["Sin variantes", "-"]);
+      }
+    }
   }
   
   const ws = XLSX.utils.aoa_to_sheet(resumen)
