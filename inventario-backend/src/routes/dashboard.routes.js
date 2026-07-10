@@ -5,7 +5,8 @@ const { pool } = require('../config/database');
 const TZ_ADJUST = "DATE_ADD(m.fecha_movimiento, INTERVAL -4 HOUR)";
 
 async function dashboardRoutes(fastify) {
-  fastify.get('/', async (request) => {
+  fastify.get('/', async (request, reply) => {
+    try {
     const targetDate = request.query.date || new Date().toISOString().split('T')[0];
     const userId = request.headers['x-user-id'];
     const userRole = request.headers['x-user-role'];
@@ -99,6 +100,7 @@ async function dashboardRoutes(fastify) {
                   
       // 7. Movimientos/Actividades recientes
       pool.query(`
+        SELECT * FROM (
           SELECT 
             m.id, 'movimiento' AS origen, m.tipo, 'Movimiento' AS modulo, m.codigo AS codigo_o_modulo,
             alm.nombre AS almacen, m.solicitante_nombre AS solicitante, 
@@ -108,7 +110,7 @@ async function dashboardRoutes(fastify) {
           JOIN almacenes alm ON m.almacen_id = alm.id
           LEFT JOIN usuarios u ON m.usuario_id = u.id
           WHERE 1=1 ${movAlmacenFilter} ${roleFilterAct}
-        UNION ALL
+          UNION ALL
           SELECT 
             al.id, 'actividad' AS origen, al.tipo, al.modulo, al.modulo AS codigo_o_modulo,
             '—' AS almacen, al.descripcion AS solicitante, 
@@ -117,6 +119,7 @@ async function dashboardRoutes(fastify) {
           FROM actividad_log al
           LEFT JOIN usuarios u ON al.usuario_id = u.id
           WHERE 1=1 ${roleFilterAct}
+        ) AS combined_results
         ORDER BY fecha DESC, id DESC LIMIT 6
       `, movParams),
                   
@@ -216,6 +219,10 @@ async function dashboardRoutes(fastify) {
         })
       }
     };
+    } catch (err) {
+      request.log.error(err);
+      return reply.code(500).send({ error: 'Error cargando dashboard', details: err.message });
+    }
   });
 }
 

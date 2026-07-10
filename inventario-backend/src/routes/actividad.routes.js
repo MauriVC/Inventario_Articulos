@@ -84,6 +84,7 @@ async function actividadRoutes(fastify) {
     const [[countResult]] = await pool.query(countQuery, [...movParams, ...actParams]);
 
     const unionQuery = `
+      SELECT * FROM (
         SELECT 
           m.id,
           'movimiento' AS origen,
@@ -97,7 +98,7 @@ async function actividadRoutes(fastify) {
         FROM movimientos m
         LEFT JOIN usuarios u ON m.usuario_id = u.id
         WHERE ${movWhere}
-      UNION ALL
+        UNION ALL
         SELECT 
           al.id,
           'actividad' AS origen,
@@ -111,6 +112,7 @@ async function actividadRoutes(fastify) {
         FROM actividad_log al
         LEFT JOIN usuarios u ON al.usuario_id = u.id
         WHERE ${actWhere}
+      ) AS combined_results
       ORDER BY fecha DESC, id DESC
       LIMIT ? OFFSET ?
     `;
@@ -185,6 +187,7 @@ async function actividadRoutes(fastify) {
     const movParams = isRestricted ? [userId] : [];
 
     const query = `
+      SELECT * FROM (
         SELECT 
           m.id,
           'movimiento' AS origen,
@@ -196,7 +199,7 @@ async function actividadRoutes(fastify) {
         FROM movimientos m
         LEFT JOIN usuarios u ON m.usuario_id = u.id
         WHERE 1=1 ${movAlmacenFilter}
-      UNION ALL
+        UNION ALL
         SELECT 
           al.id,
           'actividad' AS origen,
@@ -207,6 +210,7 @@ async function actividadRoutes(fastify) {
           al.created_at AS fecha
         FROM actividad_log al
         LEFT JOIN usuarios u ON al.usuario_id = u.id
+      ) AS combined_results
       ORDER BY fecha DESC, id DESC
       LIMIT 8
     `;
