@@ -99,7 +99,6 @@ async function dashboardRoutes(fastify) {
                   
       // 7. Movimientos/Actividades recientes
       pool.query(`
-        (
           SELECT 
             m.id, 'movimiento' AS origen, m.tipo, 'Movimiento' AS modulo, m.codigo AS codigo_o_modulo,
             alm.nombre AS almacen, m.solicitante_nombre AS solicitante, 
@@ -109,9 +108,7 @@ async function dashboardRoutes(fastify) {
           JOIN almacenes alm ON m.almacen_id = alm.id
           LEFT JOIN usuarios u ON m.usuario_id = u.id
           WHERE 1=1 ${movAlmacenFilter} ${roleFilterAct}
-        )
         UNION ALL
-        (
           SELECT 
             al.id, 'actividad' AS origen, al.tipo, al.modulo, al.modulo AS codigo_o_modulo,
             '—' AS almacen, al.descripcion AS solicitante, 
@@ -120,7 +117,6 @@ async function dashboardRoutes(fastify) {
           FROM actividad_log al
           LEFT JOIN usuarios u ON al.usuario_id = u.id
           WHERE 1=1 ${roleFilterAct}
-        )
         ORDER BY fecha DESC LIMIT 6
       `, movParams),
                   
