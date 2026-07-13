@@ -158,8 +158,7 @@ app.whenReady().then(async () => {
   // 7. Configurar Auto-Updater (Solo en producción)
   if (!isDev) {
     autoUpdater.logger = console;
-    autoUpdater.logger.transports.file.level = 'info';
-    autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.autoDownload = true;
 
     autoUpdater.on('update-available', () => {
       dialog.showMessageBox({
@@ -183,6 +182,9 @@ app.whenReady().then(async () => {
     autoUpdater.on('error', (err) => {
       console.error('[AutoUpdater] Error:', err);
     });
+
+    // Verificar actualizaciones después de configurar los listeners
+    autoUpdater.checkForUpdatesAndNotify();
   }
 })
 
