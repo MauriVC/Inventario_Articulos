@@ -78,7 +78,7 @@
           </button>
         </form>
 
-        <p class="login-version">v1.0.0</p>
+        <p class="login-version">v1.0.2</p>
       </div>
     </div>
   </div>
