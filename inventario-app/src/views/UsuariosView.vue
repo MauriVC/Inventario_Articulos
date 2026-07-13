@@ -142,7 +142,16 @@
               <p class="text-sm text-muted mb-3">Selecciona los permisos específicos que tendrá este usuario.</p>
               
               <div v-for="(perms, modulo) in permisosPorModulo" :key="modulo" class="mb-4">
-                <h4 class="font-medium text-sm mb-2" style="color: var(--color-primary-dark)">{{ modulo }}</h4>
+                <div class="flex items-center justify-between mb-2">
+                  <h4 class="font-medium text-sm" style="color: var(--color-primary-dark); margin-bottom: 0;">{{ modulo }}</h4>
+                  <label class="flex items-center gap-1 text-xs cursor-pointer text-muted" style="transition: color 0.2s;">
+                    <input type="checkbox" 
+                           :checked="isModuloFullySelected(modulo)" 
+                           @change="toggleModuloPermisos(modulo, $event.target.checked)" 
+                           style="accent-color: var(--color-primary); cursor: pointer;" />
+                    <span>Seleccionar todo</span>
+                  </label>
+                </div>
                 <div class="grid-2 gap-2">
                   <label class="almacen-checkbox" v-for="p in perms" :key="p.id">
                     <input type="checkbox" :value="p.id" v-model="form.permisos" />
@@ -245,6 +254,29 @@ function rolBadgeClass(rol) {
   if (rol === 'SuperAdministrador') return 'badge-dark'
   if (rol === 'Administrador') return 'badge-medium'
   return 'badge-light'
+}
+
+function isModuloFullySelected(modulo) {
+  const permsInModulo = permisosPorModulo.value[modulo] || []
+  if (permsInModulo.length === 0) return false
+  return permsInModulo.every(p => form.value.permisos.includes(p.id))
+}
+
+function toggleModuloPermisos(modulo, isChecked) {
+  const permsInModulo = permisosPorModulo.value[modulo] || []
+  const permIds = permsInModulo.map(p => p.id)
+  
+  if (isChecked) {
+    // Agregar todos los permisos de este módulo que no estén ya asignados
+    for (const id of permIds) {
+      if (!form.value.permisos.includes(id)) {
+        form.value.permisos.push(id)
+      }
+    }
+  } else {
+    // Quitar todos los permisos de este módulo
+    form.value.permisos = form.value.permisos.filter(id => !permIds.includes(id))
+  }
 }
 
 function openCreateModal() {
