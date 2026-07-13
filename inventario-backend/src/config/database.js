@@ -221,6 +221,20 @@ function executeSqliteQuery(sql, params = []) {
   // 4. SQLite no soporta objetos Date nativos en bind parameters, convertirlos a ISO String
   const safeParams = params.map(p => (p instanceof Date) ? p.toISOString() : p);
 
+  // Regex para detectar cadenas de fecha/hora UTC almacenadas por SQLite (sin sufijo Z)
+  const dateTimeRegex = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}$/;
+
+  function normalizeRowDates(rows) {
+    for (const row of rows) {
+      for (const key in row) {
+        if (typeof row[key] === 'string' && dateTimeRegex.test(row[key])) {
+          row[key] = row[key].replace(' ', 'T') + 'Z';
+        }
+      }
+    }
+    return rows;
+  }
+
   try {
     const isSelect = sql.trim().toUpperCase().startsWith('SELECT') || sql.trim().toUpperCase().startsWith('PRAGMA') || sql.trim().toUpperCase().startsWith('SHOW');
     if (isSelect) {
@@ -229,7 +243,7 @@ function executeSqliteQuery(sql, params = []) {
       }
       const stmt = sqliteDb.prepare(sql);
       const rows = stmt.all(...safeParams);
-      return [rows, null];
+      return [normalizeRowDates(rows), null];
     } else {
       const stmt = sqliteDb.prepare(sql);
       const info = stmt.run(...safeParams);
