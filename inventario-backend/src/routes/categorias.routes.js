@@ -3,6 +3,8 @@
  */
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateConfiguracionBody } = require('../middleware/validation');
 
 async function categoriasRoutes(fastify) {
 
@@ -19,7 +21,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // GET /api/categorias/:id
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', { preHandler: [validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const [rows] = await pool.query(`
       SELECT c.*, p.nombre AS padre_nombre
@@ -32,7 +34,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // POST /api/categorias
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, padre_id, descripcion } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
@@ -53,7 +55,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // PUT /api/categorias/:id
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
     const { id } = request.params;
     const { nombre, padre_id, descripcion, estado } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
@@ -76,7 +78,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // DELETE /api/categorias/:id
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const [[cat]] = await pool.query('SELECT nombre FROM categorias WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM categorias WHERE id = ?', [id]);

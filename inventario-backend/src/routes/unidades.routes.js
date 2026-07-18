@@ -3,6 +3,8 @@
  */
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateConfiguracionBody } = require('../middleware/validation');
 
 async function unidadesRoutes(fastify) {
 
@@ -17,9 +19,8 @@ async function unidadesRoutes(fastify) {
     return { data: rows[0] };
   });
 
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, abreviatura } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
     try {
       const [result] = await pool.query('INSERT INTO unidad_medidas (nombre, abreviatura) VALUES (?, ?)', [nombre, abreviatura || null]);
       const userId = request.headers['x-user-id'] || null;
@@ -33,15 +34,15 @@ async function unidadesRoutes(fastify) {
     }
   });
 
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
+    const { id } = request.params;
     const { nombre, abreviatura, estado } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
     try {
-      const [result] = await pool.query('UPDATE unidad_medidas SET nombre = ?, abreviatura = ?, estado = ? WHERE id = ?', [nombre, abreviatura || null, estado || 'Activo', request.params.id]);
+      const [result] = await pool.query('UPDATE unidad_medidas SET nombre = ?, abreviatura = ?, estado = ? WHERE id = ?', [nombre, abreviatura || null, estado || 'Activo', id]);
       if (result.affectedRows === 0) return reply.code(404).send({ error: 'Unidad no encontrada' });
       const userId = request.headers['x-user-id'] || null;
-      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Unidad de Medida', descripcion: `Se editó la unidad "${nombre}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
-      return { data: { id: Number(request.params.id), nombre, abreviatura, estado } };
+      registrarActividad({ tipo: 'EDICIÓN', modulo: 'Unidad de Medida', descripcion: `Se editó la unidad "${nombre}"`, usuario_id: userId, referencia_id: Number(id) });
+      return { data: { id: Number(id), nombre, abreviatura, estado } };
     } catch (err) {
       if (err.code === 'ER_DUP_ENTRY' || err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.message && (err.message.includes('Duplicate entry') || err.message.includes('UNIQUE constraint failed')))) {
         return reply.code(400).send({ error: 'Ya existe una unidad de medida con este nombre' });
@@ -50,12 +51,13 @@ async function unidadesRoutes(fastify) {
     }
   });
 
-  fastify.delete('/:id', async (request, reply) => {
-    const [[unidad]] = await pool.query('SELECT nombre FROM unidad_medidas WHERE id = ?', [request.params.id]);
-    const [result] = await pool.query('DELETE FROM unidad_medidas WHERE id = ?', [request.params.id]);
+  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
+    const { id } = request.params;
+    const [[unidad]] = await pool.query('SELECT nombre FROM unidad_medidas WHERE id = ?', [id]);
+    const [result] = await pool.query('DELETE FROM unidad_medidas WHERE id = ?', [id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Unidad no encontrada' });
     const userId = request.headers['x-user-id'] || null;
-    registrarActividad({ tipo: 'BORRADO', modulo: 'Unidad de Medida', descripcion: `Se eliminó la unidad "${unidad ? unidad.nombre : 'ID:'+request.params.id}"`, usuario_id: userId, referencia_id: Number(request.params.id) });
+    registrarActividad({ tipo: 'BORRADO', modulo: 'Unidad de Medida', descripcion: `Se eliminó la unidad "${unidad ? unidad.nombre : 'ID:'+id}"`, usuario_id: userId, referencia_id: Number(id) });
     return { message: 'Unidad eliminada' };
   });
 }

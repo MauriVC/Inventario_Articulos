@@ -1,10 +1,24 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
-const fastify = require('fastify')({ logger: true });
+const fastify = require('fastify')({ 
+  logger: true,
+  bodyLimit: 1048576 // Límite estricto de 1MB para los payloads
+});
 const { testConnection, closeSqlite } = require('./src/config/database');
 const cors = require('@fastify/cors');
+const helmet = require('@fastify/helmet');
+const rateLimit = require('@fastify/rate-limit');
 const registerRoutes = require('./src/routes');
+
+// ─── Seguridad y Rate Limit Global ───
+fastify.register(helmet, {
+  contentSecurityPolicy: false // Para que no haya conflicto si usas VUE en algún momento integrado
+});
+fastify.register(rateLimit, {
+  max: 100, // Máximo 100 peticiones globales
+  timeWindow: '1 minute'
+});
 
 // ─── CORS ───
 fastify.register(cors, {

@@ -3,7 +3,9 @@
  * Operaciones transaccionales que actualizan el stock
  */
 const { pool } = require('../config/database');
-
+const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateMovimientoBody } = require('../middleware/validation');
 async function movimientosRoutes(fastify) {
 
   // GET /api/movimientos — Historial con filtros
@@ -185,8 +187,8 @@ async function movimientosRoutes(fastify) {
     return { data: pendientes };
   });
 
-  // GET /api/movimientos/:id — Detalle con artículos
-  fastify.get('/:id', async (request, reply) => {
+  // GET /api/movimientos/:id — Obtener detalle
+  fastify.get('/:id', { preHandler: [requirePermission('VER_MOVIMIENTOS'), validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const [
       [movimientos],
@@ -218,28 +220,15 @@ async function movimientosRoutes(fastify) {
     return { data: { ...movimientos[0], detalles } };
   });
 
-  // POST /api/movimientos — Registrar movimiento (SALIDA, ENTRADA o BAJA)
-  fastify.post('/', async (request, reply) => {
+  // POST /api/movimientos — Registrar un movimiento
+  fastify.post('/', { preHandler: [requirePermission('CREAR_MOVIMIENTO'), validateMovimientoBody] }, async (request, reply) => {
     const {
       tipo, almacen_id, paquete_id,
       solicitante_ci, solicitante_nombre, solicitante_telefono,
       destino_procedencia, motivo_baja, observacion,
       detalles, // [{ articulo_item_id, cantidad }]
-      es_devolucion = false // Nuevo campo desde el frontend
+      es_devolucion = false
     } = request.body;
-
-    if (!tipo || !almacen_id || !detalles || detalles.length === 0) {
-      return reply.code(400).send({ error: 'tipo, almacen_id y detalles son obligatorios' });
-    }
-    if (!['ENTRADA', 'SALIDA', 'BAJA'].includes(tipo)) {
-      return reply.code(400).send({ error: 'tipo debe ser ENTRADA, SALIDA o BAJA' });
-    }
-
-    // Validación de permisos dinámica
-    const reqPerm = tipo === 'ENTRADA' ? 'REGISTRAR_ENTRADA' : (tipo === 'SALIDA' ? 'REGISTRAR_SALIDA' : 'REGISTRAR_BAJA');
-    const { requirePermission } = require('../middleware/auth');
-    await requirePermission(reqPerm)(request, reply);
-    if (reply.sent) return;
 
     const conn = await pool.getConnection();
     try {

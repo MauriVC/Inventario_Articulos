@@ -1,16 +1,24 @@
 /**
- * Rutas de Autenticación — Login
+ * Rutas CRUD — Autenticación
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
+const { validateLoginBody } = require('../middleware/validation');
 
 async function authRoutes(fastify) {
 
   // POST /api/auth/login
-  fastify.post('/login', async (request, reply) => {
+  // Configuramos rate limit específico: máximo 5 intentos por minuto para mitigar ataques de fuerza bruta
+  fastify.post('/login', { 
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute'
+      }
+    },
+    preHandler: validateLoginBody 
+  }, async (request, reply) => {
     const { carnet, contrasena } = request.body;
-    if (!carnet || !contrasena) {
-      return reply.code(400).send({ error: 'carnet y contrasena son obligatorios' });
-    }
 
     const [users] = await pool.query(
       'SELECT id, carnet, nombres, apellidos, rol, estado FROM usuarios WHERE carnet = ? AND contrasena = ?',

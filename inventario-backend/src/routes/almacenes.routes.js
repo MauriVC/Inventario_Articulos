@@ -4,6 +4,7 @@
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
 const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateAlmacenBody } = require('../middleware/validation');
 
 async function almacenesRoutes(fastify) {
 
@@ -41,7 +42,7 @@ async function almacenesRoutes(fastify) {
   });
 
   // GET /api/almacenes/:id — Obtener uno
-  fastify.get('/:id', async (request, reply) => {
+  fastify.get('/:id', { preHandler: validateIdParam }, async (request, reply) => {
     const { id } = request.params;
     const [rows] = await pool.query('SELECT * FROM almacenes WHERE id = ?', [id]);
     if (rows.length === 0) return reply.code(404).send({ error: 'Almacén no encontrado' });
@@ -49,10 +50,9 @@ async function almacenesRoutes(fastify) {
   });
 
   // POST /api/almacenes — Crear
-  fastify.post('/', { preHandler: requirePermission('CREAR_ALMACEN') }, async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('CREAR_ALMACEN'), validateAlmacenBody] }, async (request, reply) => {
     const { nombre, ubicacion, descripcion } = request.body;
     const userId = request.headers['x-user-id'] || null;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const [result] = await pool.query(
       'INSERT INTO almacenes (nombre, ubicacion, descripcion, created_by) VALUES (?, ?, ?, ?)',
@@ -63,10 +63,9 @@ async function almacenesRoutes(fastify) {
   });
 
   // PUT /api/almacenes/:id — Actualizar
-  fastify.put('/:id', { preHandler: requirePermission('EDITAR_ALMACEN') }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('EDITAR_ALMACEN'), validateIdParam, validateAlmacenBody] }, async (request, reply) => {
     const { id } = request.params;
     const { nombre, ubicacion, descripcion, estado } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const [result] = await pool.query(
       'UPDATE almacenes SET nombre = ?, ubicacion = ?, descripcion = ?, estado = ? WHERE id = ?',
@@ -79,7 +78,7 @@ async function almacenesRoutes(fastify) {
   });
 
   // DELETE /api/almacenes/:id — Eliminar
-  fastify.delete('/:id', { preHandler: requirePermission('ELIMINAR_ALMACEN') }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('ELIMINAR_ALMACEN'), validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const [[almacen]] = await pool.query('SELECT nombre FROM almacenes WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM almacenes WHERE id = ?', [id]);

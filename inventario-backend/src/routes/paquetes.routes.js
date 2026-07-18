@@ -2,6 +2,9 @@
  * Rutas CRUD — Paquetes (con contenido)
  */
 const { pool } = require('../config/database');
+const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validatePaqueteBody } = require('../middleware/validation');
 
 async function paquetesRoutes(fastify) {
 
@@ -47,8 +50,8 @@ async function paquetesRoutes(fastify) {
     return { data: result };
   });
 
-  // GET /api/paquetes/:id
-  fastify.get('/:id', async (request, reply) => {
+  // GET /api/paquetes/:id — Obtener uno con sus items
+  fastify.get('/:id', { preHandler: validateIdParam }, async (request, reply) => {
     const { id } = request.params;
     const [
       [paquetes],
@@ -78,11 +81,9 @@ async function paquetesRoutes(fastify) {
     return { data: { ...paquetes[0], categoria_nombre: paquetes[0].categoria_nombre || 'Mixta', items: contenido } };
   });
 
-  // POST /api/paquetes — Crear paquete con contenido
-  fastify.post('/', async (request, reply) => {
-    const { nombre, categoria_id, almacen_id, observacion, items } = request.body;
-    if (!nombre || !almacen_id) return reply.code(400).send({ error: 'nombre y almacen_id son obligatorios' });
-    if (!items || items.length === 0) return reply.code(400).send({ error: 'El paquete debe tener al menos un artículo' });
+  // POST /api/paquetes — Crear paquete
+  fastify.post('/', { preHandler: [requirePermission('CREAR_ARTICULO'), validatePaqueteBody] }, async (request, reply) => {
+    const { nombre, almacen_id, descripcion, items } = request.body;
 
     const conn = await pool.getConnection();
     try {
@@ -90,7 +91,7 @@ async function paquetesRoutes(fastify) {
 
       const [result] = await conn.query(
         'INSERT INTO paquetes (nombre, categoria_id, almacen_id, observacion) VALUES (?, ?, ?, ?)',
-        [nombre, categoria_id || null, almacen_id, observacion || null]
+        [nombre, request.body.categoria_id || null, almacen_id, descripcion || null]
       );
       const paqueteId = result.insertId;
 
@@ -107,11 +108,10 @@ async function paquetesRoutes(fastify) {
     }
   });
 
-  // PUT /api/paquetes/:id — Actualizar paquete y reemplazar contenido
-  fastify.put('/:id', async (request, reply) => {
+  // PUT /api/paquetes/:id — Editar paquete
+  fastify.put('/:id', { preHandler: [requirePermission('EDITAR_ARTICULO'), validateIdParam, validatePaqueteBody] }, async (request, reply) => {
     const { id } = request.params;
     const { nombre, categoria_id, observacion, estado, items } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
     const conn = await pool.getConnection();
     try {
@@ -143,9 +143,10 @@ async function paquetesRoutes(fastify) {
     }
   });
 
-  // DELETE /api/paquetes/:id
-  fastify.delete('/:id', async (request, reply) => {
-    const [result] = await pool.query('DELETE FROM paquetes WHERE id = ?', [request.params.id]);
+  // DELETE /api/paquetes/:id — Eliminar paquete
+  fastify.delete('/:id', { preHandler: [requirePermission('ELIMINAR_ARTICULO'), validateIdParam] }, async (request, reply) => {
+    const { id } = request.params;
+    const [result] = await pool.query('DELETE FROM paquetes WHERE id = ?', [id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Paquete no encontrado' });
     return { message: 'Paquete eliminado' };
   });

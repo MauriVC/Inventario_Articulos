@@ -3,6 +3,8 @@
  */
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
+const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateConfiguracionBody } = require('../middleware/validation');
 
 async function coloresRoutes(fastify) {
 
@@ -17,9 +19,8 @@ async function coloresRoutes(fastify) {
     return { data: rows[0] };
   });
 
-  fastify.post('/', async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, codigo_hex } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
     try {
       const [result] = await pool.query('INSERT INTO colores (nombre, codigo_hex) VALUES (?, ?)', [nombre, codigo_hex || '#CCCCCC']);
       const userId = request.headers['x-user-id'] || null;
@@ -33,9 +34,8 @@ async function coloresRoutes(fastify) {
     }
   });
 
-  fastify.put('/:id', async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, codigo_hex, estado } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
     try {
       const [result] = await pool.query('UPDATE colores SET nombre = ?, codigo_hex = ?, estado = ? WHERE id = ?', [nombre, codigo_hex || '#CCCCCC', estado || 'Activo', request.params.id]);
       if (result.affectedRows === 0) return reply.code(404).send({ error: 'Color no encontrado' });
@@ -50,7 +50,7 @@ async function coloresRoutes(fastify) {
     }
   });
 
-  fastify.delete('/:id', async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
     const [[color]] = await pool.query('SELECT nombre FROM colores WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM colores WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Color no encontrado' });

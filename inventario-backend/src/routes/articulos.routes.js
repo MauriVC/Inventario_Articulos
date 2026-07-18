@@ -4,6 +4,7 @@
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
 const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateArticuloBody, validateArticuloEstadoBody } = require('../middleware/validation');
 
 function obtenerPrimerasTresLetras(texto) {
   if (!texto || texto.trim() === '') return '';
@@ -108,8 +109,8 @@ async function articulosRoutes(fastify) {
     return { data: result };
   });
 
-  // GET /api/articulos/:id — Detalle de un artículo
-  fastify.get('/:id', async (request, reply) => {
+  // GET /api/articulos/:id — Detalles de un artículo
+  fastify.get('/:id', { preHandler: validateIdParam }, async (request, reply) => {
     const { id } = request.params;
     const [articulos] = await pool.query(`
       SELECT a.*, alm.nombre AS almacen_nombre, cat.nombre AS categoria_nombre,
@@ -150,13 +151,9 @@ async function articulosRoutes(fastify) {
       }
     };
   });
-  // POST /api/articulos — Crear artículo con variantes y atributos
-  fastify.post('/', { preHandler: requirePermission('CREAR_ARTICULO') }, async (request, reply) => {
-    const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, variantes, dato_ids } = request.body;
-
-    if (!nombre || !almacen_id || !categoria_id || !unidad_medida_id) {
-      return reply.code(400).send({ error: 'nombre, almacen_id, categoria_id y unidad_medida_id son obligatorios' });
-    }
+  // POST /api/articulos — Crear
+  fastify.post('/', { preHandler: [requirePermission('CREAR_ARTICULO'), validateArticuloBody] }, async (request, reply) => {
+    const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, variantes = [], dato_ids = [], requiere_devolucion = false } = request.body;
 
     const conn = await pool.getConnection();
     try {
@@ -217,11 +214,10 @@ async function articulosRoutes(fastify) {
     }
   });
 
-  // PUT /api/articulos/:id — Actualizar datos básicos, atributos y variantes
-  fastify.put('/:id', { preHandler: requirePermission('EDITAR_ARTICULO') }, async (request, reply) => {
+  // PUT /api/articulos/:id — Actualizar
+  fastify.put('/:id', { preHandler: [requirePermission('EDITAR_ARTICULO'), validateIdParam, validateArticuloBody] }, async (request, reply) => {
     const { id } = request.params;
-    const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, requiere_devolucion, estado, dato_ids, variantes } = request.body;
-    if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
+    const { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, variantes = [], dato_ids = [], requiere_devolucion } = request.body;
 
     const conn = await pool.getConnection();
     try {
@@ -229,8 +225,8 @@ async function articulosRoutes(fastify) {
 
       // 1. Actualizar datos básicos (incluye almacen_id)
       const [result] = await conn.query(
-        'UPDATE articulos SET almacen_id = ?, categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ?, estado = ? WHERE id = ?',
-        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, estado || 'Activo', id]
+        'UPDATE articulos SET almacen_id = ?, categoria_id = ?, marca_id = ?, unidad_medida_id = ?, codigo = ?, nombre = ?, descripcion = ?, requiere_devolucion = ? WHERE id = ?',
+        [almacen_id, categoria_id, marca_id || null, unidad_medida_id, codigo || null, nombre, descripcion || null, requiere_devolucion ? 1 : 0, id]
       );
       
       if (result.affectedRows === 0) {
@@ -269,11 +265,10 @@ async function articulosRoutes(fastify) {
     }
   });
 
-  // PATCH /api/articulos/:id/estado — Cambiar estado de un artículo
-  fastify.patch('/:id/estado', { preHandler: requirePermission('EDITAR_ARTICULO') }, async (request, reply) => {
+  // PATCH /api/articulos/:id/estado — Cambiar estado
+  fastify.patch('/:id/estado', { preHandler: [requirePermission('EDITAR_ARTICULO'), validateIdParam, validateArticuloEstadoBody] }, async (request, reply) => {
     const { id } = request.params;
     const { estado } = request.body;
-    if (!estado) return reply.code(400).send({ error: 'Estado es obligatorio' });
 
     const [result] = await pool.query('UPDATE articulos SET estado = ? WHERE id = ?', [estado, id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Artículo no encontrado' });
@@ -284,8 +279,8 @@ async function articulosRoutes(fastify) {
     return { data: { id: Number(id), estado } };
   });
 
-  // PATCH /api/articulos/:id/devolucion — Toggle requiere_devolucion
-  fastify.patch('/:id/devolucion', { preHandler: requirePermission('EDITAR_ARTICULO') }, async (request, reply) => {
+  // PATCH /api/articulos/:id/devolucion — Cambiar si requiere devolución
+  fastify.patch('/:id/devolucion', { preHandler: [requirePermission('EDITAR_ARTICULO'), validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const { requiere_devolucion } = request.body;
     const [result] = await pool.query(
@@ -296,8 +291,8 @@ async function articulosRoutes(fastify) {
     return { data: { id: Number(id), requiere_devolucion: !!requiere_devolucion } };
   });
 
-  // DELETE /api/articulos/:id
-  fastify.delete('/:id', { preHandler: requirePermission('ELIMINAR_ARTICULO') }, async (request, reply) => {
+  // DELETE /api/articulos/:id — Eliminar (lógico)
+  fastify.delete('/:id', { preHandler: [requirePermission('ELIMINAR_ARTICULO'), validateIdParam] }, async (request, reply) => {
     // 1. Validar si el artículo tiene movimientos (historial)
     const [movs] = await pool.query(`
       SELECT 1 FROM movimiento_detalles md

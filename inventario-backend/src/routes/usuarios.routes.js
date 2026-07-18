@@ -4,6 +4,7 @@
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
 const { requirePermission } = require('../middleware/auth');
+const { validateIdParam, validateUsuarioBody } = require('../middleware/validation');
 
 async function usuariosRoutes(fastify) {
 
@@ -37,7 +38,7 @@ async function usuariosRoutes(fastify) {
   });
 
   // GET /api/usuarios/:id
-  fastify.get('/:id', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
+  fastify.get('/:id', { preHandler: [requirePermission('GESTIONAR_USUARIOS'), validateIdParam] }, async (request, reply) => {
     const [rows] = await pool.query(`
       SELECT u.id, u.carnet, u.nombres, u.apellidos, u.telefono, u.rol, u.estado, u.created_at,
              (SELECT GROUP_CONCAT(a.nombre SEPARATOR '||') FROM usuario_almacen ua JOIN almacenes a ON ua.almacen_id = a.id WHERE ua.usuario_id = u.id) AS almacenes_nombres,
@@ -62,11 +63,8 @@ async function usuariosRoutes(fastify) {
   });
 
   // POST /api/usuarios — Crear usuario
-  fastify.post('/', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('GESTIONAR_USUARIOS'), validateUsuarioBody] }, async (request, reply) => {
     const { carnet, nombres, apellidos, telefono, contrasena, rol, almacenes = [], permisos = [] } = request.body;
-    if (!carnet || !nombres || !apellidos || !contrasena) {
-      return reply.code(400).send({ error: 'carnet, nombres, apellidos y contrasena son obligatorios' });
-    }
 
     const connection = await pool.getConnection();
     try {
@@ -110,11 +108,8 @@ async function usuariosRoutes(fastify) {
   });
 
   // PUT /api/usuarios/:id
-  fastify.put('/:id', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('GESTIONAR_USUARIOS'), validateIdParam, validateUsuarioBody] }, async (request, reply) => {
     const { carnet, nombres, apellidos, telefono, rol, estado, almacenes = [], permisos = [], contrasena } = request.body;
-    if (!carnet || !nombres || !apellidos) {
-      return reply.code(400).send({ error: 'carnet, nombres y apellidos son obligatorios' });
-    }
 
     const connection = await pool.getConnection();
     try {
@@ -171,7 +166,7 @@ async function usuariosRoutes(fastify) {
   });
 
   // DELETE /api/usuarios/:id
-  fastify.delete('/:id', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('GESTIONAR_USUARIOS'), validateIdParam] }, async (request, reply) => {
     const [[user]] = await pool.query('SELECT nombres, apellidos FROM usuarios WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM usuarios WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Usuario no encontrado' });
