@@ -33,22 +33,6 @@ function requirePermission(requiredPermission) {
   };
 }
 
-/**
- * Middleware para asegurar que el usuario esté logueado y activo, independientemente del permiso.
- */
-async function requireAuth(request, reply) {
-  const userId = request.headers['x-user-id'];
-  if (!userId) {
-    return reply.code(401).send({ error: 'No autenticado. Falta X-User-Id' });
-  }
-
-  const [users] = await pool.query('SELECT estado FROM usuarios WHERE id = ?', [userId]);
-  if (users.length === 0 || users[0].estado !== 'Activo') {
-    return reply.code(403).send({ error: 'Usuario inactivo o no existe' });
-  }
-}
-
 module.exports = {
-  requirePermission,
-  requireAuth
+  requirePermission
 };

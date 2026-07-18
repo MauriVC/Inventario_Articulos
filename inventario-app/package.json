@@ -60,9 +60,7 @@
   },
   "dependencies": {
     "@vueuse/core": "^11.0.0",
-    "axios": "^1.18.1",
     "better-sqlite3": "^12.11.1",
-    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "electron-is-dev": "^3.0.1",
     "electron-updater": "^6.8.9",

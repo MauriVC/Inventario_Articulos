@@ -35,7 +35,6 @@ export const auth = {
   userId: computed(() => state.user?.id || null),
 
   // ─── Verificación de roles ───
-  // ─── Verificación de roles ───
   isSuperAdmin: computed(() => state.user?.rol === 'SuperAdministrador'),
   isAdmin: computed(() => state.user?.rol === 'Administrador' || state.user?.rol === 'SuperAdministrador'),
   isUsuario: computed(() => state.user?.rol === 'Usuario'),

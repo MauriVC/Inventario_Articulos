@@ -105,7 +105,6 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/movimientos${query ? '?' + query : ''}`);
   },
-  getMovimiento: (id) => apiFetch(`/movimientos/${id}`),
   createMovimiento: (data) => apiFetch('/movimientos', { method: 'POST', body: data }),
   getSalidasConDevolucion: () => apiFetch('/movimientos/salidas-con-devolucion'),
   
@@ -124,10 +123,8 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/usuarios${query ? '?' + query : ''}`);
   },
-  getUsuario: (id) => apiFetch(`/usuarios/${id}`),
   createUsuario: (data) => apiFetch('/usuarios', { method: 'POST', body: data }),
   updateUsuario: (id, data) => apiFetch(`/usuarios/${id}`, { method: 'PUT', body: data }),
-  deleteUsuario: (id) => apiFetch(`/usuarios/${id}`, { method: 'DELETE' }),
   getPermisos: () => apiFetch('/usuarios/permisos'),
 
   // Dashboard
