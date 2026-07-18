@@ -8,7 +8,7 @@ async function actividadRoutes(fastify) {
 
   // GET /api/actividad — Historial unificado con paginación y filtros
   fastify.get('/', async (request) => {
-    const { tipo, modulo, desde, hasta, search, limit, offset } = request.query;
+    const { tipo, modulo, desde, hasta, search, limit, offset, usuario_id } = request.query;
     const userRole = request.headers['x-user-role'];
 
     // ─── Filtros para movimientos ───
@@ -28,10 +28,12 @@ async function actividadRoutes(fastify) {
     } else if (tipo) {
       // Si filtran por REGISTRO/EDICIÓN/BORRADO, excluir movimientos
       movWhere = '1=0';
+      movParams.length = 0;
     }
 
     if (modulo && modulo !== 'Movimiento') {
       movWhere = '1=0'; // movimientos no aplican si filtran otro módulo
+      movParams.length = 0;
     }
 
     if (desde) { movWhere += ' AND m.fecha_movimiento >= ?'; movParams.push(desde); }
@@ -39,6 +41,10 @@ async function actividadRoutes(fastify) {
     if (search) {
       movWhere += ' AND (m.codigo LIKE ? OR m.solicitante_nombre LIKE ?)';
       movParams.push(`%${search}%`, `%${search}%`);
+    }
+    if (usuario_id) {
+      movWhere += ' AND m.usuario_id = ?';
+      movParams.push(usuario_id);
     }
 
     // ─── Filtros para actividad_log ───
@@ -58,6 +64,7 @@ async function actividadRoutes(fastify) {
     } else if (tipo) {
       // Si filtran por ENTRADA/SALIDA/BAJA, excluir actividades CRUD
       actWhere = '1=0';
+      actParams.length = 0;
     }
 
     if (modulo && modulo !== 'Movimiento') {
@@ -65,6 +72,7 @@ async function actividadRoutes(fastify) {
       actParams.push(modulo);
     } else if (modulo === 'Movimiento') {
       actWhere = '1=0'; // actividades CRUD no aplican si filtran por movimiento
+      actParams.length = 0;
     }
 
     if (desde) { actWhere += ' AND al.created_at >= ?'; actParams.push(desde); }
@@ -72,6 +80,10 @@ async function actividadRoutes(fastify) {
     if (search) {
       actWhere += ' AND al.descripcion LIKE ?';
       actParams.push(`%${search}%`);
+    }
+    if (usuario_id) {
+      actWhere += ' AND al.usuario_id = ?';
+      actParams.push(usuario_id);
     }
 
     // ─── UNION de ambas fuentes ───

@@ -6,35 +6,26 @@
         <input type="date" v-model="filters.desde" class="form-input" style="width: 130px;" @change="loadMovimientos(1)" />
         <span class="text-muted text-sm">hasta</span>
         <input type="date" v-model="filters.hasta" class="form-input" style="width: 130px;" @change="loadMovimientos(1)" />
-        <select v-model="filters.tipo" class="form-select" style="width: 140px;" @change="loadMovimientos(1)">
+        <select v-model="filters.tipo" class="form-select" style="width: 140px;" @change="handleTipoChange">
           <option value="">Tipo: Todos</option>
-          <optgroup label="Movimientos">
-            <option value="ENTRADA">Entrada</option>
-            <option value="SALIDA">Salida</option>
-            <option value="BAJA">Baja</option>
-          </optgroup>
-          <optgroup label="Actividades CRUD">
-            <option value="REGISTRO">Registro</option>
-            <option value="EDICIÓN">Edición</option>
-            <option value="BORRADO">Borrado</option>
+          <optgroup v-for="g in tipoOptions" :key="g.label" :label="g.label">
+            <option v-for="o in g.options" :key="o.value" :value="o.value">{{ o.label }}</option>
           </optgroup>
         </select>
-        <select v-model="filters.modulo" class="form-select" style="width: 160px;" @change="loadMovimientos(1)">
-          <option value="">Módulo: Todos</option>
-          <option value="Movimiento">Movimientos</option>
-          <option value="Artículo">Artículos</option>
-          <option value="Almacén">Almacenes</option>
-          <option value="Categoría">Categorías</option>
-          <option value="Marca">Marcas</option>
-          <option value="Unidad de Medida">Unidades</option>
-          <option value="Color">Colores</option>
-          <option value="Atributo">Atributos</option>
-          <option value="Usuario">Usuarios</option>
+        <select v-model="filters.modulo" class="form-select" style="width: 160px;" @change="handleModuloChange">
+          <option v-for="o in moduloOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+        <select v-model="filters.usuario_id" class="form-select" style="width: 160px;" @change="loadMovimientos(1)">
+          <option value="">Usuario: Todos</option>
+          <option v-for="u in usuariosList" :key="u.id" :value="u.id">{{ u.nombres }} {{ u.apellidos }}</option>
         </select>
         <div class="form-input-icon">
           <Search :size="16" />
           <input v-model="filters.search" type="text" class="form-input" placeholder="Buscar..." style="width: 200px;" @keyup.enter="loadMovimientos(1)" />
         </div>
+        <button class="btn btn-ghost btn-icon" title="Limpiar filtros" @click="limpiarFiltros" v-if="hasFilters">
+          <RotateCcw :size="16" />
+        </button>
       </div>
       <button class="btn btn-primary" style="padding-left: 16px; padding-right: 16px;" @click="openExportFullModal">
         <Download :size="18" /> Descargar Historial
@@ -340,7 +331,103 @@ const selectedMov = ref(null)
 const selectedOrigen = ref(null)
 const showExportModal = ref(false)
 const exportingFull = ref(false)
-const filters = ref({ desde: '', hasta: '', tipo: '', modulo: '', search: '' })
+const filters = ref({ desde: '', hasta: '', tipo: '', modulo: '', search: '', usuario_id: '' })
+const usuariosList = ref([])
+
+const hasFilters = computed(() => {
+  return filters.value.desde !== '' || 
+         filters.value.hasta !== '' || 
+         filters.value.tipo !== '' || 
+         filters.value.modulo !== '' || 
+         filters.value.search !== '' ||
+         filters.value.usuario_id !== ''
+})
+
+function limpiarFiltros() {
+  filters.value = { desde: '', hasta: '', tipo: '', modulo: '', search: '', usuario_id: '' }
+  loadMovimientos(1)
+}
+
+const moduloOptions = computed(() => {
+  const isMov = ['ENTRADA', 'SALIDA', 'BAJA'].includes(filters.value.tipo)
+  const isCrud = ['REGISTRO', 'EDICIÓN', 'BORRADO'].includes(filters.value.tipo)
+  
+  let options = [{ value: '', label: 'Módulo: Todos' }]
+  
+  if (!isCrud) {
+    options.push({ value: 'Movimiento', label: 'Movimientos' })
+  }
+  
+  if (!isMov) {
+    options.push(
+      { value: 'Artículo', label: 'Artículos' },
+      { value: 'Almacén', label: 'Almacenes' },
+      { value: 'Categoría', label: 'Categorías' },
+      { value: 'Marca', label: 'Marcas' },
+      { value: 'Unidad de Medida', label: 'Unidades' },
+      { value: 'Color', label: 'Colores' },
+      { value: 'Atributo', label: 'Atributos' },
+      { value: 'Usuario', label: 'Usuarios' }
+    )
+  }
+  return options
+})
+
+const tipoOptions = computed(() => {
+  const mod = filters.value.modulo
+  let groups = []
+  
+  if (mod === '' || mod === 'Movimiento') {
+    groups.push({
+      label: 'Movimientos',
+      options: [
+        { value: 'ENTRADA', label: 'Entrada' },
+        { value: 'SALIDA', label: 'Salida' },
+        { value: 'BAJA', label: 'Baja' }
+      ]
+    })
+  }
+  
+  if (mod !== 'Movimiento') {
+    groups.push({
+      label: 'Actividades CRUD',
+      options: [
+        { value: 'REGISTRO', label: 'Registro' },
+        { value: 'EDICIÓN', label: 'Edición' },
+        { value: 'BORRADO', label: 'Borrado' }
+      ]
+    })
+  }
+  
+  return groups
+})
+
+function handleTipoChange() {
+  const isMov = ['ENTRADA', 'SALIDA', 'BAJA'].includes(filters.value.tipo)
+  const isCrud = ['REGISTRO', 'EDICIÓN', 'BORRADO'].includes(filters.value.tipo)
+  
+  if (isMov) {
+    filters.value.modulo = 'Movimiento'
+  } else if (isCrud && filters.value.modulo === 'Movimiento') {
+    filters.value.modulo = ''
+  }
+  
+  loadMovimientos(1)
+}
+
+function handleModuloChange() {
+  if (filters.value.modulo === 'Movimiento') {
+    if (['REGISTRO', 'EDICIÓN', 'BORRADO'].includes(filters.value.tipo)) {
+      filters.value.tipo = ''
+    }
+  } else if (filters.value.modulo !== '') {
+    if (['ENTRADA', 'SALIDA', 'BAJA'].includes(filters.value.tipo)) {
+      filters.value.tipo = ''
+    }
+  }
+  
+  loadMovimientos(1)
+}
 
 function openExportFullModal() {
   exportingFull.value = true
@@ -384,6 +471,12 @@ const visiblePages = computed(() => {
 })
 
 onMounted(async () => {
+  try {
+    const res = await api.getUsuarios()
+    if (res.data) usuariosList.value = res.data
+  } catch (error) {
+    console.error("Error cargando usuarios", error)
+  }
   await loadMovimientos(1)
 })
 
@@ -396,6 +489,7 @@ async function loadMovimientos(page = 1) {
     if (filters.value.desde) params.desde = filters.value.desde
     if (filters.value.hasta) params.hasta = filters.value.hasta
     if (filters.value.search) params.search = filters.value.search
+    if (filters.value.usuario_id) params.usuario_id = filters.value.usuario_id
     params.limit = pageSize.value
     params.offset = (page - 1) * pageSize.value
 

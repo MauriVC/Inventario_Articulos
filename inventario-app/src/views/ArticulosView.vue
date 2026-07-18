@@ -3,6 +3,9 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div class="flex items-center gap-3">
+        <input type="date" v-model="selectedDesde" class="form-input" style="width: 130px;" />
+        <span class="text-muted text-sm">hasta</span>
+        <input type="date" v-model="selectedHasta" class="form-input" style="width: 130px;" />
         <select v-model="selectedAlmacen" class="form-select" style="width: 220px;">
           <option value="">Todos los almacenes</option>
           <option v-for="a in almacenes" :key="a.id" :value="a.id">{{ a.nombre }}</option>
@@ -19,6 +22,9 @@
           <Search :size="16" />
           <input v-model="search" type="text" class="form-input" placeholder="Buscar artículo..." style="width: 220px;" />
         </div>
+        <button class="btn btn-ghost btn-icon" title="Limpiar filtros" @click="limpiarFiltros" v-if="hasFilters">
+          <RotateCcw :size="16" />
+        </button>
       </div>
       <button class="btn btn-primary" @click="openModal(null)">
         <Plus :size="18" />
@@ -186,6 +192,12 @@
                 <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Marca / Unidad</span>
                 <p class="font-medium" style="color: #475569;">
                   {{ selectedArticulo.marca_nombre || 'S/M' }} &nbsp;&bull;&nbsp; {{ selectedArticulo.unidad_nombre }}
+                </p>
+              </div>
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Fecha de Registro</span>
+                <p class="font-medium flex items-center gap-1.5" style="color: #475569;">
+                  <Calendar :size="14" style="color: #94a3b8;" /> {{ formatDate(selectedArticulo.created_at) }}
                 </p>
               </div>
             </div>
@@ -364,7 +376,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { Search, Plus, Pencil, Trash2, Eye, X, Save, Tags, Folder, Warehouse, AlignLeft, Palette, User } from 'lucide-vue-next'
+import { Search, Plus, Pencil, Trash2, Eye, X, Save, Tags, Folder, Warehouse, AlignLeft, Palette, User, Calendar, RotateCcw } from 'lucide-vue-next'
 import { api } from '@/api'
 import { auth } from '@/auth'
 import { confirmAction, showError, showWarning, showSuccess } from '@/utils/alerts'
@@ -376,9 +388,34 @@ const search = ref('')
 const selectedAlmacen = ref('')
 const selectedCategoria = ref('')
 const selectedMarca = ref('')
+const selectedDesde = ref('')
+const selectedHasta = ref('')
 const loading = ref(true)
 const saving = ref(false)
 const formError = ref('')
+
+const hasFilters = computed(() => {
+  return search.value || selectedAlmacen.value || selectedCategoria.value || selectedMarca.value || selectedDesde.value || selectedHasta.value
+})
+
+function limpiarFiltros() {
+  search.value = ''
+  selectedAlmacen.value = ''
+  selectedCategoria.value = ''
+  selectedMarca.value = ''
+  selectedDesde.value = ''
+  selectedHasta.value = ''
+  currentPage.value = 1
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  return d.toLocaleString('es-ES', { 
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  })
+}
 
 // Datos cargados desde el API
 const almacenes = ref([])
@@ -427,7 +464,9 @@ const filteredArticulos = computed(() => {
     const matchCat = !selectedCategoria.value || a.categoria_nombre === selectedCategoria.value
     const matchMarca = !selectedMarca.value || a.marca_nombre === selectedMarca.value
     const matchAlmacen = !selectedAlmacen.value || a.almacen_id === selectedAlmacen.value
-    return matchSearch && matchCat && matchMarca && matchAlmacen
+    const matchDesde = !selectedDesde.value || new Date(a.created_at) >= new Date(selectedDesde.value + 'T00:00:00')
+    const matchHasta = !selectedHasta.value || new Date(a.created_at) <= new Date(selectedHasta.value + 'T23:59:59')
+    return matchSearch && matchCat && matchMarca && matchAlmacen && matchDesde && matchHasta
   }).sort((a, b) => {
     // Extraer número de ART-YYYY-XXXX si es posible, o comparar alfabéticamente
     const codeA = a.codigo || ''
@@ -468,7 +507,7 @@ const visiblePages = computed(() => {
 })
 
 // Resetear página a 1 si cambian los filtros
-watch([search, selectedCategoria, selectedMarca, selectedAlmacen], () => {
+watch([search, selectedCategoria, selectedMarca, selectedAlmacen, selectedDesde, selectedHasta], () => {
   currentPage.value = 1
 })
 
