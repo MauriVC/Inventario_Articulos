@@ -5,6 +5,7 @@ const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
 const { requirePermission } = require('../middleware/auth');
 const { validateIdParam, validateUsuarioBody } = require('../middleware/validation');
+const crypto = require('crypto');
 
 async function usuariosRoutes(fastify) {
 
@@ -70,10 +71,13 @@ async function usuariosRoutes(fastify) {
     try {
       await connection.beginTransaction();
 
+      // Encriptar contraseña con SHA-256
+      const hashedPass = crypto.createHash('sha256').update(contrasena).digest('hex');
+
       // Insertar usuario
       const [result] = await connection.query(
         'INSERT INTO usuarios (carnet, nombres, apellidos, telefono, contrasena, rol) VALUES (?, ?, ?, ?, ?, ?)',
-        [carnet, nombres, apellidos, telefono || null, contrasena, rol || 'Usuario']
+        [carnet, nombres, apellidos, telefono || null, hashedPass, rol || 'Usuario']
       );
       const newUserId = result.insertId;
 
@@ -120,8 +124,9 @@ async function usuariosRoutes(fastify) {
       let params = [carnet, nombres, apellidos, telefono || null, rol || 'Usuario', estado || 'Activo'];
 
       if (contrasena && contrasena.trim() !== '') {
+        const hashedPass = crypto.createHash('sha256').update(contrasena).digest('hex');
         query += ', contrasena = ?';
-        params.push(contrasena);
+        params.push(hashedPass);
       }
       
       query += ' WHERE id = ?';

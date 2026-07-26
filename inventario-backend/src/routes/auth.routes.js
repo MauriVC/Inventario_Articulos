@@ -4,6 +4,7 @@
 const { pool } = require('../config/database');
 const { registrarActividad } = require('../config/actividadLog');
 const { validateLoginBody } = require('../middleware/validation');
+const crypto = require('crypto');
 
 async function authRoutes(fastify) {
 
@@ -19,10 +20,13 @@ async function authRoutes(fastify) {
     preHandler: validateLoginBody 
   }, async (request, reply) => {
     const { carnet, contrasena } = request.body;
+    
+    // Convertimos la contraseña a Hash SHA-256 para compararla
+    const hashedPass = crypto.createHash('sha256').update(contrasena).digest('hex');
 
     const [users] = await pool.query(
       'SELECT id, carnet, nombres, apellidos, rol, estado FROM usuarios WHERE carnet = ? AND contrasena = ?',
-      [carnet, contrasena]
+      [carnet, hashedPass]
     );
 
     if (users.length === 0) {
