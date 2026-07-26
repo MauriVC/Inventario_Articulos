@@ -1,7 +1,6 @@
 -- ============================================
 -- SISTEMA DE CONTROL DE INVENTARIO
--- Base de Datos Completa (v2 - con Atributos, Paquetes y Bajas)
--- MySQL / Aeven
+-- Base de Datos Completa
 -- ============================================
 
 -- ============================================
@@ -310,10 +309,6 @@ CREATE TABLE IF NOT EXISTS actividad_log (
 -- Color por defecto "S/N" para artículos sin color
 INSERT IGNORE INTO colores (nombre, codigo_hex) VALUES ('S/N', '#E9ECEF');
 
--- Unidades de medida iniciales
-INSERT IGNORE INTO usuarios (carnet, nombres, apellidos, telefono, contrasena, rol, estado) VALUES
-  ('00000001', 'Super', 'Administrador', '70000001', 'admin123', 'SuperAdministrador', 'Activo');
-
 -- Permisos iniciales
 INSERT IGNORE INTO permisos (nombre, descripcion, modulo) VALUES
   ('VER_ALMACENES', 'Ver lista de almacenes', 'Almacenes'),
@@ -331,10 +326,6 @@ INSERT IGNORE INTO permisos (nombre, descripcion, modulo) VALUES
   ('VER_REPORTES', 'Acceso a los reportes y descargas', 'Reportes'),
   ('GESTIONAR_USUARIOS', 'Administrar usuarios y accesos', 'Usuarios'),
   ('GESTIONAR_CONFIGURACION', 'Administrar categorías, marcas, atributos', 'Configuración');
-
--- Asignar todos los permisos al SuperAdministrador inicial (id=1)
-INSERT IGNORE INTO usuario_permiso (usuario_id, permiso_id)
-SELECT 1, id FROM permisos;
 
 INSERT IGNORE INTO unidad_medidas (nombre, abreviatura) VALUES
   ('Unidad', 'Ud'),
