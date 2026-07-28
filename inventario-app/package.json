@@ -17,7 +17,12 @@
     "rebuild-sqlite": "cd ../inventario-backend && npx @electron/rebuild -f -w better-sqlite3 -v 33.0.0",
     "rebuild-sqlite-local": "cd ../inventario-backend && npm rebuild better-sqlite3",
     "electron:build": "npm run rebuild-sqlite && vite build && electron-builder && npm run rebuild-sqlite-local",
-    "prebuild": "npm run rebuild-sqlite"
+    "prebuild": "npm run rebuild-sqlite",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run src/tests/unit",
+    "test:components": "vitest run src/tests/components"
   },
   "build": {
     "appId": "com.inventario.uecorazonnuevo",
@@ -76,11 +81,15 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.1.0",
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vue/test-utils": "^2.4.11",
     "concurrently": "^9.0.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
+    "jsdom": "^29.1.1",
     "vite": "^5.4.0",
+    "vitest": "^4.1.10",
     "wait-on": "^8.0.5"
   }
 }
