@@ -168,7 +168,7 @@ function executeSqliteQuery(sql, params = []) {
     return `GROUP_CONCAT(${inner})`;
   });
   // CONCAT(a, b, ...) → a || b || ... (SQLite no tiene CONCAT)
-  sql = replaceBalancedFunction(sql, 'CONCAT', (inner) => {
+  sql = replaceBalancedFunction(sql, '(?<!GROUP_)CONCAT', (inner) => {
     const args = splitTopLevelArgs(inner);
     return args.join(' || ');
   });
@@ -334,6 +334,15 @@ function closeSqlite() {
   }
 }
 
-module.exports = { pool, testConnection, closeSqlite };
+/**
+ * setTestDb — Solo para uso en tests.
+ * Inyecta una BD SQLite en memoria (better-sqlite3) en el closure del módulo,
+ * reemplazando la BD de archivo para que los tests de integración sean aislados.
+ */
+function setTestDb(db) {
+  sqliteDb = db;
+}
+
+module.exports = { pool, testConnection, closeSqlite, setTestDb };
 
 

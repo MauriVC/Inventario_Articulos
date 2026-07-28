@@ -27,3 +27,9 @@ dist-ssr
 dist-electron/
 dist_electron/
 release/
+
+# Tests — reportes de cobertura (generados por npm run test:coverage)
+coverage/
+
+# BD local generada durante los tests de integración
+*.sqlite
