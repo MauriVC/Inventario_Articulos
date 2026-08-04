@@ -19,7 +19,7 @@ async function marcasRoutes(fastify) {
     return { data: rows[0] };
   });
 
-  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, descripcion } = request.body;
     try {
       const [result] = await pool.query('INSERT INTO marcas (nombre, descripcion) VALUES (?, ?)', [nombre, descripcion || null]);
@@ -34,7 +34,7 @@ async function marcasRoutes(fastify) {
     }
   });
 
-  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, descripcion, estado } = request.body;
     try {
       const [result] = await pool.query('UPDATE marcas SET nombre = ?, descripcion = ?, estado = ? WHERE id = ?', [nombre, descripcion || null, estado || 'Activo', request.params.id]);
@@ -50,7 +50,7 @@ async function marcasRoutes(fastify) {
     }
   });
 
-  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam] }, async (request, reply) => {
     const [[marca]] = await pool.query('SELECT nombre FROM marcas WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM marcas WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Marca no encontrada' });

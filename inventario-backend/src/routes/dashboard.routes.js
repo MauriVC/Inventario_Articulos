@@ -76,13 +76,13 @@ async function dashboardRoutes(fastify) {
       
       // 5. Gráfico de Actividad por Hora
       pool.query(`
-        SELECT periodo, tipo, SUM(total_cantidad) AS total_cantidad FROM (
-          SELECT HOUR(${TZ_ADJUST}) AS periodo, m.tipo, SUM(md.cantidad) AS total_cantidad
+        SELECT periodo, tipo, SUM(total_cantidad) AS total_cantidad, MIN(primera_vez) AS primera_vez FROM (
+          SELECT HOUR(${TZ_ADJUST}) AS periodo, m.tipo, SUM(md.cantidad) AS total_cantidad, MIN(m.fecha_movimiento) AS primera_vez
           FROM movimientos m JOIN movimiento_detalles md ON m.id = md.movimiento_id
           LEFT JOIN usuarios u ON m.usuario_id = u.id
           WHERE DATE(${TZ_ADJUST}) = ? ${movAlmacenFilter} ${roleFilterAct} GROUP BY periodo, m.tipo
           UNION ALL
-          SELECT HOUR(DATE_ADD(al.created_at, INTERVAL -4 HOUR)) AS periodo, al.tipo, COUNT(*) AS total_cantidad
+          SELECT HOUR(DATE_ADD(al.created_at, INTERVAL -4 HOUR)) AS periodo, al.tipo, COUNT(*) AS total_cantidad, MIN(al.created_at) AS primera_vez
           FROM actividad_log al
           LEFT JOIN usuarios u ON al.usuario_id = u.id
           WHERE DATE(DATE_ADD(al.created_at, INTERVAL -4 HOUR)) = ? ${roleFilterAct}
@@ -165,7 +165,8 @@ async function dashboardRoutes(fastify) {
       baja: 0,
       registro: 0,
       edicion: 0,
-      borrado: 0
+      borrado: 0,
+      events: []
     }));
 
     chartRows.forEach(row => {
@@ -177,7 +178,17 @@ async function dashboardRoutes(fastify) {
         if (row.tipo === 'REGISTRO') chartData[idx].registro = Number(row.total_cantidad);
         if (row.tipo === 'EDICIÓN') chartData[idx].edicion = Number(row.total_cantidad);
         if (row.tipo === 'BORRADO') chartData[idx].borrado = Number(row.total_cantidad);
+
+        chartData[idx].events.push({
+          tipo: row.tipo,
+          total: Number(row.total_cantidad),
+          primera_vez: new Date(row.primera_vez).getTime()
+        });
       }
+    });
+
+    chartData.forEach(hour => {
+      hour.events.sort((a, b) => a.primera_vez - b.primera_vez);
     });
 
     return {

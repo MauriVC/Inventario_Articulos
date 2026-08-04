@@ -32,7 +32,7 @@ async function atributosRoutes(fastify) {
   });
 
   // POST /api/atributos — Crear atributo (opcionalmente con datos iniciales)
-  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, datos } = request.body;
 
     try {
@@ -57,7 +57,7 @@ async function atributosRoutes(fastify) {
   });
 
   // PUT /api/atributos/:id — Renombrar atributo
-  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
     const { nombre } = request.body;
     try {
       const [result] = await pool.query('UPDATE atributos SET nombre = ? WHERE id = ?', [nombre, request.params.id]);
@@ -74,7 +74,7 @@ async function atributosRoutes(fastify) {
   });
 
   // DELETE /api/atributos/:id — Elimina atributo y sus datos en cascada
-  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam] }, async (request, reply) => {
     const [[attr]] = await pool.query('SELECT nombre FROM atributos WHERE id = ?', [request.params.id]);
     const [result] = await pool.query('DELETE FROM atributos WHERE id = ?', [request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Atributo no encontrado' });
@@ -86,7 +86,7 @@ async function atributosRoutes(fastify) {
   // --- Sub-rutas para Datos (valores de un atributo) ---
 
   // POST /api/atributos/:id/datos — Agregar un dato a un atributo
-  fastify.post('/:id/datos', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateDatoAtributoBody] }, async (request, reply) => {
+  fastify.post('/:id/datos', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam, validateDatoAtributoBody] }, async (request, reply) => {
     const { id } = request.params;
     const { nombre } = request.body;
 
@@ -102,7 +102,7 @@ async function atributosRoutes(fastify) {
   });
 
   // DELETE /api/atributos/:id/datos/:datoId — Eliminar un dato
-  fastify.delete('/:id/datos/:datoId', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
+  fastify.delete('/:id/datos/:datoId', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam] }, async (request, reply) => {
     const [result] = await pool.query('DELETE FROM datos WHERE id = ? AND atributo_id = ?', [request.params.datoId, request.params.id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Dato no encontrado' });
     return { message: 'Dato eliminado' };

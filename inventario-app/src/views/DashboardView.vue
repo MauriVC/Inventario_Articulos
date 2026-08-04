@@ -43,10 +43,36 @@
             </div>
             <div class="card-body flex-center flex-column" style="padding: var(--space-5) var(--space-4); flex: 1;">
               <div class="doughnut-chart-container">
-                <div class="pie-chart" :style="{ background: pieChartBackground }">
-                  <div class="doughnut-hole flex flex-column flex-center justify-center">
-                    <span class="text-xs text-gray-500 font-medium">Total</span>
-                    <span class="text-xl font-bold text-gray-800" style="line-height: 1;">{{ totalMovimientosMes }}</span>
+                <div class="svg-pie-wrapper">
+                  <svg viewBox="0 0 100 100" class="svg-pie-chart">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" stroke-width="18" v-if="svgSlices.length === 0" />
+                    <circle
+                      v-for="slice in svgSlices"
+                      :key="slice.tipo"
+                      cx="50" cy="50" r="38"
+                      fill="none"
+                      :stroke="slice.color"
+                      stroke-width="18"
+                      :stroke-dasharray="slice.dasharray"
+                      :stroke-dashoffset="slice.dashoffset"
+                      class="pie-slice"
+                      :class="{ 'is-active': activeSlice && activeSlice.tipo === slice.tipo, 'is-dimmed': activeSlice && activeSlice.tipo !== slice.tipo }"
+                      @mouseenter="activeSlice = slice"
+                      @mouseleave="activeSlice = null"
+                    />
+                  </svg>
+                  
+                  <div class="doughnut-hole">
+                    <transition name="fade" mode="out-in">
+                      <div v-if="activeSlice" :key="'active'" class="flex flex-column flex-center text-center">
+                        <span class="text-xs font-bold" :style="{ color: activeSlice.color }">{{ activeSlice.tipo }}</span>
+                        <span class="text-xl font-bold text-gray-800" style="line-height: 1;">{{ activeSlice.total }}</span>
+                      </div>
+                      <div v-else :key="'total'" class="flex flex-column flex-center text-center">
+                        <span class="text-xs text-gray-500 font-medium">Total</span>
+                        <span class="text-xl font-bold text-gray-800" style="line-height: 1;">{{ totalMovimientosMes }}</span>
+                      </div>
+                    </transition>
                   </div>
                 </div>
               </div>
@@ -71,12 +97,9 @@
                 <div class="chart-bars">
                   <div class="chart-bar-group" v-for="item in chartData" :key="item.label">
                     <div class="chart-bar-container">
-                      <div class="chart-bar bar-entrada" :style="{ height: maxChartValue ? (item.entrada / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nEntradas: ${item.entrada}`"></div>
-                      <div class="chart-bar bar-salida" :style="{ height: maxChartValue ? (item.salida / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nSalidas: ${item.salida}`"></div>
-                      <div class="chart-bar bar-baja" :style="{ height: maxChartValue ? ((item.baja || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nBajas: ${item.baja || 0}`"></div>
-                      <div class="chart-bar bar-registro" :style="{ height: maxChartValue ? ((item.registro || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nRegistros: ${item.registro || 0}`"></div>
-                      <div class="chart-bar bar-edicion" :style="{ height: maxChartValue ? ((item.edicion || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nEdiciones: ${item.edicion || 0}`"></div>
-                      <div class="chart-bar bar-borrado" :style="{ height: maxChartValue ? ((item.borrado || 0) / maxChartValue * 100) + '%' : '0%' }" :title="`Hora: ${item.label} - ${String(item.periodo).padStart(2, '0')}:59\nBorrados: ${item.borrado || 0}`"></div>
+                      <div v-for="ev in item.events" :key="ev.tipo" :class="`chart-bar bar-${ev.tipo.toLowerCase().replace('ó', 'o')}`" :style="{ height: maxChartValue ? (ev.total / maxChartValue * 100) + '%' : '0%' }">
+                        <div class="css-tooltip"><strong>{{ item.label }} - {{ String(item.periodo).padStart(2, '0') }}:59</strong><br>{{ ev.total }} {{ ev.tipo === 'EDICIÓN' ? 'Ediciones' : ev.tipo.charAt(0).toUpperCase() + ev.tipo.slice(1).toLowerCase() + 's' }}</div>
+                      </div>
                     </div>
                     <span class="chart-label">{{ item.label }}</span>
                   </div>
@@ -261,6 +284,7 @@ const stockAlerts = ref([])
 const topArticulos = ref([])
 const recentMovements = ref([])
 const distribucionMes = ref([])
+const activeSlice = ref(null)
 
 onMounted(async () => {
   await loadDashboardData()
@@ -332,15 +356,14 @@ const stats = computed(() => [
   { label: 'Pendientes', value: statsData.value.devoluciones_pendientes, icon: RotateCcw, bg: '#fffbeb', color: '#d97706' }
 ])
 
-const pieChartBackground = computed(() => {
-  if (!distribucionMes.value || distribucionMes.value.length === 0) return 'var(--color-gray-100)';
-  
+const svgSlices = computed(() => {
+  if (!distribucionMes.value || distribucionMes.value.length === 0) return [];
   const total = totalMovimientosMes.value;
-  if (total === 0) return 'var(--color-gray-100)';
+  if (total === 0) return [];
 
-  let bg = 'conic-gradient(';
-  let currentPercentage = 0;
-  
+  const circumference = 2 * Math.PI * 38;
+  let currentOffset = 0;
+
   const colors = {
     'ENTRADA': 'var(--color-success)',
     'SALIDA': 'var(--color-danger)',
@@ -350,16 +373,18 @@ const pieChartBackground = computed(() => {
     'BORRADO': '#4a5568'
   };
 
-  distribucionMes.value.forEach((item, index) => {
-    const percentage = (item.total / total) * 100;
-    const color = colors[item.tipo] || 'var(--color-primary)';
-    bg += `${color} ${currentPercentage}% ${currentPercentage + percentage}%`;
-    currentPercentage += percentage;
-    if (index < distribucionMes.value.length - 1) bg += ', ';
+  return distribucionMes.value.filter(d => d.total > 0).map(item => {
+    const percentage = item.total / total;
+    const length = percentage * circumference;
+    const slice = {
+      ...item,
+      color: colors[item.tipo] || 'var(--color-primary)',
+      dasharray: `${length} ${circumference}`,
+      dashoffset: -currentOffset
+    };
+    currentOffset += length;
+    return slice;
   });
-  
-  bg += ')';
-  return bg;
 })
 </script>
 
@@ -417,29 +442,61 @@ const pieChartBackground = computed(() => {
   100% { transform: scale(1); opacity: 1; }
 }
 
-.pie-chart {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.3s ease;
+.svg-pie-wrapper {
+  position: relative;
+  width: 200px;
+  height: 200px;
 }
-.pie-chart:hover {
-  transform: scale(1.05);
+.svg-pie-chart {
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.05));
+  transition: transform 0.4s ease, filter 0.4s ease;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.svg-pie-wrapper:hover .svg-pie-chart {
+  transform: rotate(-90deg) scale(1.05);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.12));
+}
+
+.pie-slice {
+  cursor: pointer;
+  transition: stroke-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+  transform-origin: center;
+}
+.pie-slice.is-active {
+  stroke-width: 22;
+}
+.pie-slice.is-dimmed {
+  opacity: 0.4;
 }
 
 .doughnut-hole {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 90px;
   height: 90px;
-  background-color: white;
   border-radius: 50%;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 .justify-center {
   justify-content: center;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
 }
 
 /* Stat Cards (Redesigned) */
@@ -447,8 +504,14 @@ const pieChartBackground = computed(() => {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: 0 var(--space-2);
+  padding: var(--space-3) var(--space-2);
   border-right: 1px solid var(--color-gray-100);
+  border-radius: var(--radius-md);
+  transition: transform 0.3s ease, background-color 0.3s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  background-color: #f8fafc;
 }
 .stat-card:last-child {
   border-right: none;
@@ -461,6 +524,10 @@ const pieChartBackground = computed(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.stat-card:hover .stat-card-icon {
+  transform: scale(1.15) rotate(-5deg);
 }
 .stat-card-info {
   display: flex;
@@ -520,44 +587,87 @@ const pieChartBackground = computed(() => {
 .chart-bars {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 24px;
   height: 100%;
-  min-width: 800px;
-  padding: var(--space-4) 0;
+  min-width: max-content;
+  padding: 80px 16px var(--space-4) 16px;
 }
 .chart-bar-group {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
   height: 100%;
+  min-width: 64px;
 }
 .chart-bar-container {
   display: flex;
-  gap: 2px;
+  gap: 6px;
   align-items: flex-end;
   height: calc(100% - 20px);
   width: 100%;
   justify-content: center;
 }
 .chart-bar {
-  width: 10px;
-  border-radius: 2px 2px 0 0;
-  transition: height var(--transition-slow);
+  width: 18px;
+  border-radius: 4px 4px 0 0;
+  transition: height var(--transition-slow), opacity 0.2s, transform 0.2s, filter 0.2s;
   cursor: pointer;
   flex: 1;
-  max-width: 14px;
+  max-width: 24px;
   transform-origin: bottom;
   animation: growBar 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  position: relative;
 }
 
 @keyframes growBar {
   0% { transform: scaleY(0); opacity: 0; }
   100% { transform: scaleY(1); opacity: 1; }
 }
+
 .chart-bar:hover {
-  opacity: 0.8;
+  opacity: 0.9;
+  transform: scaleY(1.05);
+  filter: brightness(1.1);
+  z-index: 10;
+}
+
+/* Tooltip interactivo CSS */
+.css-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: #1e293b;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.css-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #1e293b transparent transparent transparent;
+}
+
+.chart-bar:hover .css-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 .bar-entrada {
   background: var(--color-success);
@@ -620,35 +730,20 @@ const pieChartBackground = computed(() => {
   border-radius: var(--radius-lg);
   font-size: var(--font-size-sm);
   font-weight: 500;
-  transition: all var(--transition-fast);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   text-decoration: none;
   justify-content: center;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-.qa-salida {
+  border: 1px solid #e2e8f0;
   background: #fff;
   color: #1e293b;
-  border: 1px solid #e2e8f0;
 }
-.qa-salida:hover { background: #f8fafc; border-color: #cbd5e1; }
-.qa-entrada {
-  background: #fff;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
+.quick-action-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
-.qa-entrada:hover { background: #f8fafc; border-color: #cbd5e1; }
-.qa-articulo {
-  background: #fff;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
-}
-.qa-articulo:hover { background: #f8fafc; border-color: #cbd5e1; }
-.qa-historial {
-  background: #fff;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
-}
-.qa-historial:hover { background: #f8fafc; border-color: #cbd5e1; }
 
 /* Alert Items */
 .alert-item {
@@ -657,6 +752,12 @@ const pieChartBackground = computed(() => {
   justify-content: space-between;
   padding: 12px var(--space-4);
   border-bottom: 1px solid var(--color-gray-100);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  cursor: default;
+}
+.alert-item:hover {
+  background-color: #f8fafc;
+  transform: translateX(4px);
 }
 .alert-item:last-child { border-bottom: none; }
 .alert-info {

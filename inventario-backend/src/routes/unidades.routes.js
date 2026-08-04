@@ -19,7 +19,7 @@ async function unidadesRoutes(fastify) {
     return { data: rows[0] };
   });
 
-  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, abreviatura } = request.body;
     try {
       const [result] = await pool.query('INSERT INTO unidad_medidas (nombre, abreviatura) VALUES (?, ?)', [nombre, abreviatura || null]);
@@ -34,7 +34,7 @@ async function unidadesRoutes(fastify) {
     }
   });
 
-  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
     const { id } = request.params;
     const { nombre, abreviatura, estado } = request.body;
     try {
@@ -51,7 +51,7 @@ async function unidadesRoutes(fastify) {
     }
   });
 
-  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const [[unidad]] = await pool.query('SELECT nombre FROM unidad_medidas WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM unidad_medidas WHERE id = ?', [id]);

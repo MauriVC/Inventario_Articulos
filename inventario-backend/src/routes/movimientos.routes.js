@@ -221,7 +221,14 @@ async function movimientosRoutes(fastify) {
   });
 
   // POST /api/movimientos — Registrar un movimiento
-  fastify.post('/', { preHandler: [requirePermission('CREAR_MOVIMIENTO'), validateMovimientoBody] }, async (request, reply) => {
+  const requireMovimientoPermission = async (request, reply) => {
+    const { tipo } = request.body;
+    if (tipo) {
+      const check = requirePermission(`REGISTRAR_${tipo}`);
+      await check(request, reply);
+    }
+  };
+  fastify.post('/', { preHandler: [validateMovimientoBody, requireMovimientoPermission] }, async (request, reply) => {
     const {
       tipo, almacen_id, paquete_id,
       solicitante_ci, solicitante_nombre, solicitante_telefono,

@@ -34,7 +34,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // POST /api/categorias
-  fastify.post('/', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateConfiguracionBody] }, async (request, reply) => {
+  fastify.post('/', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateConfiguracionBody] }, async (request, reply) => {
     const { nombre, padre_id, descripcion } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
 
@@ -55,7 +55,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // PUT /api/categorias/:id
-  fastify.put('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
+  fastify.put('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam, validateConfiguracionBody] }, async (request, reply) => {
     const { id } = request.params;
     const { nombre, padre_id, descripcion, estado } = request.body;
     if (!nombre) return reply.code(400).send({ error: 'El nombre es obligatorio' });
@@ -78,7 +78,7 @@ async function categoriasRoutes(fastify) {
   });
 
   // DELETE /api/categorias/:id
-  fastify.delete('/:id', { preHandler: [requirePermission('CONFIGURACION_SISTEMA'), validateIdParam] }, async (request, reply) => {
+  fastify.delete('/:id', { preHandler: [requirePermission('GESTIONAR_CONFIGURACION'), validateIdParam] }, async (request, reply) => {
     const { id } = request.params;
     const [[cat]] = await pool.query('SELECT nombre FROM categorias WHERE id = ?', [id]);
     const [result] = await pool.query('DELETE FROM categorias WHERE id = ?', [id]);

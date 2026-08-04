@@ -54,12 +54,29 @@ async function almacenesRoutes(fastify) {
     const { nombre, ubicacion, descripcion } = request.body;
     const userId = request.headers['x-user-id'] || null;
 
-    const [result] = await pool.query(
-      'INSERT INTO almacenes (nombre, ubicacion, descripcion, created_by) VALUES (?, ?, ?, ?)',
-      [nombre, ubicacion || null, descripcion || null, userId]
-    );
-    registrarActividad({ tipo: 'REGISTRO', modulo: 'Almacén', descripcion: `Se registró el almacén "${nombre}"`, usuario_id: userId, referencia_id: result.insertId });
-    return reply.code(201).send({ data: { id: result.insertId, nombre, ubicacion, descripcion, created_by: userId } });
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      
+      const [result] = await conn.query(
+        'INSERT INTO almacenes (nombre, ubicacion, descripcion, created_by) VALUES (?, ?, ?, ?)',
+        [nombre, ubicacion || null, descripcion || null, userId]
+      );
+      
+      if (userId) {
+        // Asignar automáticamente el almacén creado al usuario que lo creó
+        await conn.query('INSERT INTO usuario_almacen (usuario_id, almacen_id) VALUES (?, ?)', [userId, result.insertId]);
+      }
+      
+      await conn.commit();
+      registrarActividad({ tipo: 'REGISTRO', modulo: 'Almacén', descripcion: `Se registró el almacén "${nombre}"`, usuario_id: userId, referencia_id: result.insertId });
+      return reply.code(201).send({ data: { id: result.insertId, nombre, ubicacion, descripcion, created_by: userId } });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
   });
 
   // PUT /api/almacenes/:id — Actualizar
