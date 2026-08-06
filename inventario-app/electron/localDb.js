@@ -52,6 +52,31 @@ function migrateSchemaIfNeeded() {
       db.pragma('foreign_keys = ON');
       console.log('[SQLite] Tablas eliminadas. Se recrearán con CASCADE.');
     }
+    // Verificar si unidad_medidas tiene abreviatura NOT NULL (corregir a nullable)
+    const unidadInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='unidad_medidas'").get();
+    if (unidadInfo && unidadInfo.sql.includes('abreviatura TEXT NOT NULL')) {
+      console.log('[SQLite] Migrando unidad_medidas: abreviatura NOT NULL → nullable...');
+      db.pragma('foreign_keys = OFF');
+      const rows = db.prepare('SELECT * FROM unidad_medidas').all();
+      db.prepare('DROP TABLE unidad_medidas').run();
+      db.prepare(`CREATE TABLE unidad_medidas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        abreviatura TEXT,
+        estado TEXT DEFAULT 'Activo',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )`).run();
+      if (rows.length > 0) {
+        const insert = db.prepare('INSERT INTO unidad_medidas (id, nombre, abreviatura, estado, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+        for (const row of rows) {
+          insert.run(row.id, row.nombre, row.abreviatura, row.estado, row.created_at, row.updated_at);
+        }
+      }
+      db.pragma('foreign_keys = ON');
+      console.log('[SQLite] Migración de unidad_medidas completada.');
+    }
+
   } catch (e) {
     // Si la tabla no existe, createSchema() la creará
   }
@@ -121,7 +146,7 @@ function createSchema() {
     CREATE TABLE IF NOT EXISTS unidad_medidas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
-      abreviatura TEXT NOT NULL,
+      abreviatura TEXT,
       estado TEXT DEFAULT 'Activo',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

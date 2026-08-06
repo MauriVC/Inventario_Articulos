@@ -5,11 +5,11 @@ const fastify = require('fastify')({
   logger: true,
   bodyLimit: 1048576 // Límite estricto de 1MB para los payloads
 });
-const { testConnection, closeSqlite } = require('./src/config/database');
+const { testConnection, closeSqlite } = require('./src/core/config/database');
 const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
 const rateLimit = require('@fastify/rate-limit');
-const registerRoutes = require('./src/routes');
+const registerRoutes = require('./src/modules');
 
 // ─── Seguridad y Rate Limit Global ───
 fastify.register(helmet, {

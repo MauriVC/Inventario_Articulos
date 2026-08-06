@@ -590,7 +590,7 @@ const svgSlices = computed(() => {
   gap: 24px;
   height: 100%;
   min-width: max-content;
-  padding: 80px 16px var(--space-4) 16px;
+  padding: 80px 48px var(--space-4) 48px;
 }
 .chart-bar-group {
   display: flex;
