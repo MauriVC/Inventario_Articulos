@@ -204,6 +204,31 @@ async function crear({ almacen_id, categoria_id, marca_id, unidad_medida_id, cod
     if (variantes && variantes.length > 0) {
       const vals = variantes.map(v => [articuloId, v.color_id, v.stock || 0]);
       await conn.query('INSERT INTO articulo_items (articulo_id, color_id, stock) VALUES ?', [vals]);
+
+      const variantesConStock = variantes.filter(v => (v.stock || 0) > 0);
+      if (variantesConStock.length > 0) {
+        const [insertedItems] = await conn.query('SELECT id, color_id FROM articulo_items WHERE articulo_id = ?', [articuloId]);
+        
+        const [lastCode] = await conn.query("SELECT codigo FROM movimientos WHERE codigo LIKE 'ENT-2026-%' ORDER BY id DESC LIMIT 1");
+        let nextNum = 1;
+        if (lastCode.length > 0) {
+          nextNum = parseInt(lastCode[0].codigo.split('-')[2], 10) + 1;
+        }
+        const movCodigo = `ENT-2026-${String(nextNum).padStart(4, '0')}`;
+
+        const [movRes] = await conn.query(
+          `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, observacion)
+           VALUES (?, 'ENTRADA', 0, ?, ?, 'Stock inicial al registrar el artículo')`,
+          [movCodigo, almacen_id, userId || 1]
+        );
+        const movId = movRes.insertId;
+
+        const detVals = variantesConStock.map(v => {
+          const item = insertedItems.find(i => i.color_id === v.color_id);
+          return [movId, item.id, v.stock, 0, v.stock];
+        });
+        await conn.query('INSERT INTO movimiento_detalles (movimiento_id, articulo_item_id, cantidad, stock_anterior, stock_posterior) VALUES ?', [detVals]);
+      }
     }
 
     if (dato_ids && dato_ids.length > 0) {
@@ -249,14 +274,39 @@ async function actualizar(id, { almacen_id, categoria_id, marca_id, unidad_medid
       await conn.query('INSERT INTO articulo_datos (articulo_id, dato_id) VALUES ?', [vals]);
     }
 
-    // Actualizar variantes (upsert seguro para no romper FK del historial)
+    // Actualizar variantes (regla de stock intocable)
     if (variantes && variantes.length > 0) {
+      let movId = null; // Instancia de movimiento si se agregan nuevos colores con stock
       for (const v of variantes) {
         const [exists] = await conn.query('SELECT id FROM articulo_items WHERE articulo_id = ? AND color_id = ?', [id, v.color_id]);
         if (exists.length > 0) {
-          await conn.query('UPDATE articulo_items SET stock = ? WHERE id = ?', [v.stock || 0, exists[0].id]);
+          // El stock es intocable desde la edición. No hacemos nada.
+          // Si el usuario quiere cambiar stock, debe hacer una ENTRADA o SALIDA en el módulo de Movimientos.
         } else {
-          await conn.query('INSERT INTO articulo_items (articulo_id, color_id, stock) VALUES (?, ?, ?)', [id, v.color_id, v.stock || 0]);
+          // Se agregó un nuevo color al artículo
+          const initialStock = v.stock || 0;
+          const [insertRes] = await conn.query('INSERT INTO articulo_items (articulo_id, color_id, stock) VALUES (?, ?, ?)', [id, v.color_id, initialStock]);
+          
+          if (initialStock > 0) {
+            if (!movId) {
+              const [lastCode] = await conn.query("SELECT codigo FROM movimientos WHERE codigo LIKE 'ENT-2026-%' ORDER BY id DESC LIMIT 1");
+              let nextNum = 1;
+              if (lastCode.length > 0) {
+                nextNum = parseInt(lastCode[0].codigo.split('-')[2], 10) + 1;
+              }
+              const movCodigo = `ENT-2026-${String(nextNum).padStart(4, '0')}`;
+              const [movRes] = await conn.query(
+                `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, observacion)
+                 VALUES (?, 'ENTRADA', 0, ?, ?, 'Stock inicial al agregar nuevo color')`,
+                [movCodigo, almacen_id, userId || 1]
+              );
+              movId = movRes.insertId;
+            }
+            await conn.query(
+              'INSERT INTO movimiento_detalles (movimiento_id, articulo_item_id, cantidad, stock_anterior, stock_posterior) VALUES (?, ?, ?, ?, ?)',
+              [movId, insertRes.insertId, initialStock, 0, initialStock]
+            );
+          }
         }
       }
     }

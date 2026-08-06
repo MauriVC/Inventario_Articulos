@@ -9,8 +9,8 @@ const { validateIdParam, validateUsuarioBody } = require('../../core/middleware/
 async function usuariosRoutes(fastify) {
 
   // GET /api/usuarios/permisos — Listar todos los permisos disponibles
-  fastify.get('/permisos', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async () => {
-    const rows = await usuarioService.listarPermisos();
+  fastify.get('/permisos', { preHandler: requirePermission('GESTIONAR_USUARIOS') }, async (request) => {
+    const rows = await usuarioService.listarPermisos(request.headers['x-user-id'], request.headers['x-user-role']);
     return { data: rows };
   });
 
@@ -37,7 +37,8 @@ async function usuariosRoutes(fastify) {
     try {
       const data = await usuarioService.crear({
         carnet, nombres, apellidos, telefono, contrasena, rol, almacenes, permisos,
-        creatorId: request.headers['x-user-id'] || null
+        creatorId: request.headers['x-user-id'] || null,
+        creatorRole: request.headers['x-user-role'] || null
       });
       return reply.code(201).send({ data });
     } catch (err) {
@@ -52,7 +53,8 @@ async function usuariosRoutes(fastify) {
     try {
       const data = await usuarioService.actualizar(request.params.id, {
         carnet, nombres, apellidos, telefono, rol, estado, almacenes, permisos, contrasena,
-        editorId: request.headers['x-user-id'] || null
+        editorId: request.headers['x-user-id'] || null,
+        editorRole: request.headers['x-user-role'] || null
       });
       return { data };
     } catch (err) {
@@ -64,7 +66,7 @@ async function usuariosRoutes(fastify) {
   // DELETE /api/usuarios/:id
   fastify.delete('/:id', { preHandler: [requirePermission('GESTIONAR_USUARIOS'), validateIdParam] }, async (request, reply) => {
     try {
-      const result = await usuarioService.eliminar(request.params.id, request.headers['x-user-id'] || null);
+      const result = await usuarioService.eliminar(request.params.id, request.headers['x-user-id'] || null, request.headers['x-user-role'] || null);
       return result;
     } catch (err) {
       if (err.statusCode) return reply.code(err.statusCode).send({ error: err.message });

@@ -339,8 +339,9 @@
                 v-for="c in availableColors"
                 :key="c.id"
                 class="variant-color-option"
-                :class="{ selected: c.selected }"
-                @click="c.selected = !c.selected"
+                :class="{ selected: c.selected, 'opacity-75': c.isExistingVariant }"
+                :style="c.isExistingVariant ? 'cursor: not-allowed;' : ''"
+                @click="!c.isExistingVariant && (c.selected = !c.selected)"
               >
                 <span class="color-dot" :style="{ background: c.codigo_hex }"></span>
                 <span class="text-sm">{{ c.nombre }}</span>
@@ -351,6 +352,8 @@
                   class="variant-stock-input"
                   placeholder="Stock"
                   min="1"
+                  :disabled="c.isExistingVariant"
+                  :title="c.isExistingVariant ? 'Para modificar el stock de un artículo existente, realice un movimiento de Entrada/Salida' : 'Stock inicial'"
                   @click.stop
                 />
               </div>
@@ -567,7 +570,7 @@ async function toggleEstado(art) {
 async function openModal(id = null) {
   formError.value = ''
   datosAsignados.value = []
-  availableColors.value.forEach(c => { c.selected = false; c.stock = 0 })
+  availableColors.value.forEach(c => { c.selected = false; c.stock = 0; c.isExistingVariant = false })
 
   if (id) {
     editingArticulo.value = id
@@ -590,6 +593,7 @@ async function openModal(id = null) {
         if (c) {
           c.selected = true
           c.stock = v.stock
+          c.isExistingVariant = true
         }
       })
       // Establecer atributos

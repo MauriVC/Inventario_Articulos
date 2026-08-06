@@ -28,11 +28,21 @@ function parseUsuarioRelations(row) {
 }
 
 /**
- * Listar todos los permisos disponibles
+ * Listar todos los permisos disponibles (filtrados por los que tiene el usuario actual)
  */
-async function listarPermisos() {
-  const [rows] = await pool.query('SELECT * FROM permisos ORDER BY modulo, nombre');
-  return rows;
+async function listarPermisos(userId, userRole) {
+  if (userRole === 'SuperAdministrador') {
+    const [rows] = await pool.query('SELECT * FROM permisos ORDER BY modulo, nombre');
+    return rows;
+  } else {
+    const [rows] = await pool.query(`
+      SELECT p.* FROM permisos p
+      INNER JOIN usuario_permiso up ON p.id = up.permiso_id
+      WHERE up.usuario_id = ?
+      ORDER BY p.modulo, p.nombre
+    `, [userId]);
+    return rows;
+  }
 }
 
 /**
@@ -59,7 +69,19 @@ async function obtenerPorId(id) {
 /**
  * Crear un usuario con almacenes y permisos en transacción
  */
-async function crear({ carnet, nombres, apellidos, telefono, contrasena, rol, almacenes = [], permisos = [], creatorId }) {
+async function crear({ carnet, nombres, apellidos, telefono, contrasena, rol, almacenes = [], permisos = [], creatorId, creatorRole }) {
+  if (rol === 'SuperAdministrador' && creatorRole !== 'SuperAdministrador') {
+    const error = new Error('No tienes permisos para crear un SuperAdministrador');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  let permisosValidos = permisos;
+  if (creatorRole !== 'SuperAdministrador' && permisos.length > 0) {
+    const allowedPermsRows = await listarPermisos(creatorId, creatorRole);
+    const allowedIds = allowedPermsRows.map(p => p.id);
+    permisosValidos = permisos.filter(id => allowedIds.includes(id));
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -77,8 +99,8 @@ async function crear({ carnet, nombres, apellidos, telefono, contrasena, rol, al
       await connection.query('INSERT INTO usuario_almacen (usuario_id, almacen_id) VALUES ?', [values]);
     }
 
-    if (permisos && permisos.length > 0) {
-      const pValues = permisos.map(permiso_id => [newUserId, permiso_id]);
+    if (permisosValidos && permisosValidos.length > 0) {
+      const pValues = permisosValidos.map(permiso_id => [newUserId, permiso_id]);
       await connection.query('INSERT INTO usuario_permiso (usuario_id, permiso_id) VALUES ?', [pValues]);
     }
 
@@ -96,7 +118,20 @@ async function crear({ carnet, nombres, apellidos, telefono, contrasena, rol, al
 /**
  * Actualizar un usuario (datos + almacenes + permisos) en transacción
  */
-async function actualizar(id, { carnet, nombres, apellidos, telefono, rol, estado, almacenes = [], permisos = [], contrasena, editorId }) {
+async function actualizar(id, { carnet, nombres, apellidos, telefono, rol, estado, almacenes = [], permisos = [], contrasena, editorId, editorRole }) {
+  if (editorRole !== 'SuperAdministrador') {
+    const [[targetUser]] = await pool.query('SELECT rol FROM usuarios WHERE id = ?', [id]);
+    if (targetUser && targetUser.rol === 'SuperAdministrador') {
+      const error = new Error('No tienes permisos para editar a un SuperAdministrador');
+      error.statusCode = 403;
+      throw error;
+    }
+    if (rol === 'SuperAdministrador') {
+      const error = new Error('No tienes permisos para otorgar el rol de SuperAdministrador');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -129,9 +164,21 @@ async function actualizar(id, { carnet, nombres, apellidos, telefono, rol, estad
     }
 
     // Reemplazar permisos
+    let permisosValidos = permisos;
+    if (editorRole !== 'SuperAdministrador') {
+      const [currentPermsRows] = await connection.query('SELECT permiso_id FROM usuario_permiso WHERE usuario_id = ?', [id]);
+      const currentPerms = currentPermsRows.map(r => r.permiso_id);
+      const allowedPermsRows = await listarPermisos(editorId, editorRole);
+      const allowedIds = allowedPermsRows.map(p => p.id);
+      
+      const unmanageablePerms = currentPerms.filter(pid => !allowedIds.includes(pid));
+      const manageableRequestedPerms = permisos.filter(pid => allowedIds.includes(pid));
+      permisosValidos = [...unmanageablePerms, ...manageableRequestedPerms];
+    }
+
     await connection.query('DELETE FROM usuario_permiso WHERE usuario_id = ?', [id]);
-    if (permisos && permisos.length > 0) {
-      const pValues = permisos.map(permiso_id => [id, permiso_id]);
+    if (permisosValidos && permisosValidos.length > 0) {
+      const pValues = permisosValidos.map(permiso_id => [id, permiso_id]);
       await connection.query('INSERT INTO usuario_permiso (usuario_id, permiso_id) VALUES ?', [pValues]);
     }
 
@@ -149,7 +196,15 @@ async function actualizar(id, { carnet, nombres, apellidos, telefono, rol, estad
 /**
  * Eliminar un usuario
  */
-async function eliminar(id, deleterId) {
+async function eliminar(id, deleterId, deleterRole) {
+  if (deleterRole !== 'SuperAdministrador') {
+    const [[targetUser]] = await pool.query('SELECT rol FROM usuarios WHERE id = ?', [id]);
+    if (targetUser && targetUser.rol === 'SuperAdministrador') {
+      const error = new Error('No tienes permisos para eliminar a un SuperAdministrador');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
   const [[user]] = await pool.query('SELECT nombres, apellidos FROM usuarios WHERE id = ?', [id]);
   const [result] = await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
   if (result.affectedRows === 0) {
