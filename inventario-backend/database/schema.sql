@@ -222,11 +222,13 @@ CREATE TABLE IF NOT EXISTS paquetes (
   observacion   TEXT,
   estado        ENUM('Activo', 'Inactivo') NOT NULL DEFAULT 'Activo',
   created_by    INT DEFAULT NULL,
+  updated_by    INT DEFAULT NULL,
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE SET NULL,
   FOREIGN KEY (almacen_id) REFERENCES almacenes(id) ON DELETE CASCADE,
-  FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL
+  FOREIGN KEY (created_by) REFERENCES usuarios(id) ON DELETE SET NULL,
+  FOREIGN KEY (updated_by) REFERENCES usuarios(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================

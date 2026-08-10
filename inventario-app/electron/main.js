@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const { fork, spawn } = require('child_process')
-const { initLocalDb } = require('./localDb')
+const { initLocalDb, backupLocalDb } = require('./localDb')
 const connectionManager = require('./connectionManager')
 const { runSync } = require('./syncService')
 const isDev = !app.isPackaged
@@ -74,24 +74,16 @@ connectionManager.on('status-changed', async (onlineStatus) => {
     await killBackendAsync();
     await new Promise(resolve => setTimeout(resolve, 400));
 
-    // 2. Sincronizar: subir cambios offline → descargar datos frescos
-    try {
-      console.log('[Main] Subiendo cambios offline y descargando datos de la nube...');
-      const result = await runSync(process.env);
-      if (result && !result.success) {
-        console.error('[Main] La sincronización no se completó. Los datos locales se conservaron.');
-      } else {
-        console.log('[Main] Sincronización completada.');
-      }
-    } catch (err) {
-      console.error('[Main] Error durante la sincronización:', err.message);
-    }
-    
-    // 3. Arrancar backend en modo CLOUD
+    // 2. Arrancar backend en modo CLOUD de inmediato (no esperamos a la sync)
     startNewBackend(true);
-    
-    // 4. Activar sincronización periódica
+
+    // 3. Activar sincronización periódica (respaldo si la inmediata falla)
     startPeriodicSync();
+
+    // 4. Sincronización inmediata en paralelo (no bloquea el cambio de modo),
+    //    con reintentos: la 1ra conexión a la nube puede fallar justo al reconectar
+    //    (DNS/TLS aún no listos). Con reintentos evitamos esperar al ciclo periódico.
+    syncWithRetryOnSwitch();
   } else {
     // ── SE FUE EL INTERNET ──
     // 1. Detener sincronización periódica
@@ -137,6 +129,8 @@ app.whenReady().then(async () => {
       console.log('[Main] Descargando datos de la nube al SQLite local...');
       await runSync(process.env);
       console.log('[Main] SQLite local actualizado con datos de la nube.');
+      // Respaldar el SQLite local tras la sync inicial (máximo 1 por hora)
+      await backupLocalDb().catch((err) => console.error('[Backup] Error al respaldar:', err.message));
     } catch (err) {
       console.error('[Main] Error en la sincronización inicial:', err.message);
     }
@@ -204,13 +198,7 @@ app.on('activate', () => {
 // Verificación real de conectividad (no usa el estado asumido)
 // ═══════════════════════════════════════════════════
 async function checkRealConnectivity() {
-  try {
-    const axios = require('axios');
-    await axios.get('https://1.1.1.1', { timeout: 3000 });
-    return true;
-  } catch {
-    return false;
-  }
+  return connectionManager.checkReachable();
 }
 
 // ═══════════════════════════════════════════════════
@@ -339,6 +327,8 @@ async function performSync() {
       console.log('[Sync] Actualizando SQLite local con datos de la nube...');
       await runSync(process.env);
       console.log('[Sync] SQLite local actualizado exitosamente.');
+      // Respaldar el SQLite local tras una sync exitosa (máximo 1 por hora)
+      await backupLocalDb().catch((err) => console.error('[Backup] Error al respaldar:', err.message));
     } catch (err) {
       console.error('[Sync] Error en sincronización:', err.message);
     }
@@ -358,13 +348,57 @@ function triggerImmediateSync() {
   performSync();
 }
 
+// Sincronización inmediata con reintentos (protegida por isSyncing para no solaparse).
+// Intentos: 0s, 2s, 4s, 8s — suficiente para que DNS/TLS se estabilicen al reconectar.
+async function syncWithRetryOnSwitch() {
+  const delays = [0, 2000, 4000, 8000];
+  for (let i = 0; i < delays.length; i++) {
+    // Si el usuario volvió a OFFLINE durante los reintentos, abortar
+    if (!connectionManager.getStatus()) {
+      console.log('[Main] Se perdió la conexión durante los reintentos de sincronización. Abortando.');
+      return;
+    }
+    if (i > 0) {
+      console.log(`[Main] Reintentando sincronización inmediata (intento ${i + 1}/${delays.length}) en ${delays[i] / 1000}s...`);
+      await new Promise(resolve => setTimeout(resolve, delays[i]));
+    }
+    try {
+      // Respetar isSyncing: si otra sync (periódica/trigger) está en curso, esperarla
+      while (isSyncing) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      isSyncing = true;
+      let result = null;
+      try {
+        result = await runSync(process.env);
+      } finally {
+        isSyncing = false;
+        // Si algo pidió sync mientras corríamos (trigger_sync/periódico), ejecutarlo
+        if (pendingSync) {
+          pendingSync = false;
+          performSync();
+        }
+      }
+      if (result && result.success) {
+        console.log('[Main] Sincronización inmediata completada tras volver a online.');
+        await backupLocalDb().catch((err) => console.error('[Backup] Error al respaldar:', err.message));
+        return;
+      }
+      console.error('[Main] Sincronización inmediata no completada:', result && result.reason);
+    } catch (err) {
+      console.error('[Main] Error en sincronización inmediata:', err.message);
+    }
+  }
+  console.error('[Main] Sincronización inmediata agotó reintentos. El ciclo periódico lo reintentará.');
+}
+
 function startPeriodicSync() {
   stopPeriodicSync();
-  console.log('[Main] Sincronización periódica activada (cada 2 minutos).');
+  console.log('[Main] Sincronización periódica activada (cada 30 segundos).');
   syncIntervalId = setInterval(() => {
     console.log('[Main] Ejecutando sincronización periódica de rutina...');
     performSync();
-  }, 2 * 60 * 1000); // Cada 2 minutos
+  }, 30 * 1000); // Cada 30 segundos
 }
 
 function stopPeriodicSync() {

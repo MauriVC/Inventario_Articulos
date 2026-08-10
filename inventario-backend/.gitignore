@@ -8,3 +8,9 @@ coverage/
 
 # BD local generada durante los tests de integración
 *.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+
+# Copias de seguridad automaticas del SQLite local
+backups/
