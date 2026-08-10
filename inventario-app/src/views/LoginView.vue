@@ -78,7 +78,7 @@
           </button>
         </form>
 
-        <p class="login-version">v1.0.7</p>
+        <p class="login-version">v{{ appVersion }}</p>
       </div>
     </div>
   </div>
@@ -90,7 +90,9 @@ import { useRouter } from 'vue-router'
 import { UserCircle, Lock, Eye, EyeOff, LogIn } from 'lucide-vue-next'
 import { auth } from '@/auth'
 import logoSrc from '@/assets/logo.png'
+import pkg from '../../package.json'
 
+const appVersion = pkg.version
 const router = useRouter()
 const logoUrl = computed(() => logoSrc)
 const showPassword = ref(false)

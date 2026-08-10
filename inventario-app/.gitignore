@@ -24,7 +24,6 @@ dist-ssr
 *.sw?
 
 # Electron
-dist-electron/
 dist_electron/
 release/
 

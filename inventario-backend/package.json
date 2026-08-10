@@ -1,6 +1,6 @@
 {
   "name": "inventario-backend",
-  "version": "1.0.0",
+  "version": "1.0.8",
   "description": "API REST para el Sistema de Control de Inventario - U.E. Corazón Nuevo",
   "main": "index.js",
   "scripts": {
