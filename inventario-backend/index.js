@@ -6,6 +6,7 @@ const fastify = require('fastify')({
   bodyLimit: 1048576 // Límite estricto de 1MB para los payloads
 });
 const { testConnection, closeSqlite } = require('./src/core/config/database');
+const { startBackupScheduler } = require('./src/core/config/backup');
 const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
 const rateLimit = require('@fastify/rate-limit');
@@ -60,6 +61,9 @@ const start = async () => {
     const port = Number(process.env.PORT) || 3000;
     await fastify.listen({ port, host: '0.0.0.0' });
     fastify.log.info(`✓ API escuchando en http://localhost:${port}`);
+
+    // Respaldo automático del SQLite local (solo actúa en modo LOCAL)
+    startBackupScheduler();
   } catch (err) {
     fastify.log.error(`✗ Error al iniciar el servidor: ${err.message}`);
     process.exit(1);

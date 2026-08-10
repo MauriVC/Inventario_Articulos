@@ -115,7 +115,7 @@ async function listar({ tipo, modulo, desde, hasta, search, limit, offset, usuar
       LEFT JOIN usuarios u ON al.usuario_id = u.id
       WHERE ${actWhere}
     ) AS combined_results
-    ORDER BY fecha DESC, id DESC
+    ORDER BY fecha DESC, (origen = 'movimiento') DESC, id DESC
     LIMIT ? OFFSET ?
   `;
 
@@ -248,7 +248,7 @@ async function listarRecientesDashboard(userId, userRole) {
       FROM actividad_log al
       LEFT JOIN usuarios u ON al.usuario_id = u.id
     ) AS combined_results
-    ORDER BY fecha DESC, id DESC
+    ORDER BY fecha DESC, (origen = 'movimiento') DESC, id DESC
     LIMIT 8
   `;
 

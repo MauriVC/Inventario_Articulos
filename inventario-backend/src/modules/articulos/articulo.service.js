@@ -187,6 +187,7 @@ async function obtenerPorId(id) {
  */
 async function crear({ almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, variantes = [], dato_ids = [], requiere_devolucion = false, userId }) {
   const conn = await pool.getConnection();
+  const now = new Date();
   try {
     await conn.beginTransaction();
 
@@ -217,9 +218,9 @@ async function crear({ almacen_id, categoria_id, marca_id, unidad_medida_id, cod
         const movCodigo = `ENT-2026-${String(nextNum).padStart(4, '0')}`;
 
         const [movRes] = await conn.query(
-          `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, observacion)
-           VALUES (?, 'ENTRADA', 0, ?, ?, 'Stock inicial al registrar el artículo')`,
-          [movCodigo, almacen_id, userId || 1]
+          `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, observacion, fecha_movimiento)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [movCodigo, 'ENTRADA', 0, almacen_id, userId || 1, 'Stock inicial al registrar el artículo', now]
         );
         const movId = movRes.insertId;
 
@@ -237,7 +238,7 @@ async function crear({ almacen_id, categoria_id, marca_id, unidad_medida_id, cod
     }
 
     await conn.commit();
-    registrarActividad({ tipo: 'REGISTRO', modulo: 'Artículo', descripcion: `Se registró el artículo "${nombre}" (${finalCodigo})`, usuario_id: userId, referencia_id: articuloId });
+    registrarActividad({ tipo: 'REGISTRO', modulo: 'Artículo', descripcion: `Se registró el artículo "${nombre}" (${finalCodigo})`, usuario_id: userId, referencia_id: articuloId, created_at: now });
     return { id: articuloId, nombre };
   } catch (err) {
     await conn.rollback();
@@ -252,6 +253,7 @@ async function crear({ almacen_id, categoria_id, marca_id, unidad_medida_id, cod
  */
 async function actualizar(id, { almacen_id, categoria_id, marca_id, unidad_medida_id, codigo, nombre, descripcion, variantes = [], dato_ids = [], requiere_devolucion, userId }) {
   const conn = await pool.getConnection();
+  const now = new Date();
   try {
     await conn.beginTransaction();
 
@@ -295,11 +297,11 @@ async function actualizar(id, { almacen_id, categoria_id, marca_id, unidad_medid
                 nextNum = parseInt(lastCode[0].codigo.split('-')[2], 10) + 1;
               }
               const movCodigo = `ENT-2026-${String(nextNum).padStart(4, '0')}`;
-              const [movRes] = await conn.query(
-                `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, observacion)
-                 VALUES (?, 'ENTRADA', 0, ?, ?, 'Stock inicial al agregar nuevo color')`,
-                [movCodigo, almacen_id, userId || 1]
-              );
+        const [movRes] = await conn.query(
+          `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, observacion, fecha_movimiento)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [movCodigo, 'ENTRADA', 0, almacen_id, userId || 1, 'Stock inicial al agregar nuevo color', now]
+        );
               movId = movRes.insertId;
             }
             await conn.query(
@@ -312,7 +314,7 @@ async function actualizar(id, { almacen_id, categoria_id, marca_id, unidad_medid
     }
 
     await conn.commit();
-    registrarActividad({ tipo: 'EDICIÓN', modulo: 'Artículo', descripcion: `Se editó el artículo "${nombre}"`, usuario_id: userId, referencia_id: Number(id) });
+    registrarActividad({ tipo: 'EDICIÓN', modulo: 'Artículo', descripcion: `Se editó el artículo "${nombre}"`, usuario_id: userId, referencia_id: Number(id), created_at: now });
     return { id: Number(id), nombre };
   } catch (err) {
     await conn.rollback();

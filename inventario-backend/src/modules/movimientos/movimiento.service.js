@@ -243,15 +243,17 @@ async function registrar({
     }
     const codigo = `${prefix}-2026-${String(nextNum).padStart(4, '0')}`;
 
+    const now = new Date();
+
     // Insertar cabecera
     const [movResult] = await conn.query(
       `INSERT INTO movimientos (codigo, tipo, es_devolucion, almacen_id, usuario_id, paquete_id,
        solicitante_ci, solicitante_nombre, solicitante_telefono,
-       destino_procedencia, motivo_baja, observacion)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       destino_procedencia, motivo_baja, observacion, fecha_movimiento)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [codigo, tipo, es_devolucion ? 1 : 0, almacen_id, userId || 1, paquete_id || null,
        solicitante_ci || null, solicitante_nombre || null, solicitante_telefono || null,
-       destino_procedencia || null, motivo_baja || null, observacion || null]
+       destino_procedencia || null, motivo_baja || null, observacion || null, now]
     );
     const movimientoId = movResult.insertId;
 

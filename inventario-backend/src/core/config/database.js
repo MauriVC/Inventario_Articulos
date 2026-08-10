@@ -10,6 +10,7 @@ const DB_MODE = process.env.DB_MODE || 'cloud';
 
 let mysqlPool = null;
 let sqliteDb = null;
+let sqlitePath = null;
 
 // --- CONFIGURACIÓN MYSQL ---
 if (DB_MODE === 'cloud') {
@@ -35,6 +36,7 @@ if (DB_MODE === 'local') {
   // En producción, esto apuntará al userData de Electron.
   const dbPath = process.env.SQLITE_PATH || path.join(__dirname, '../../inventario_local.sqlite');
   sqliteDb = new Database(dbPath);
+  sqlitePath = dbPath;
   sqliteDb.pragma('journal_mode = WAL');
   sqliteDb.pragma('foreign_keys = ON');
 }
@@ -343,6 +345,6 @@ function setTestDb(db) {
   sqliteDb = db;
 }
 
-module.exports = { pool, testConnection, closeSqlite, setTestDb };
+module.exports = { pool, testConnection, closeSqlite, setTestDb, getSqliteDb: () => sqliteDb, getSqlitePath: () => sqlitePath };
 
 
