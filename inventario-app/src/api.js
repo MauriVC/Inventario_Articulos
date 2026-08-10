@@ -9,8 +9,7 @@ async function apiFetch(endpoint, options = {}, retries = 3, delay = 1000) {
   const config = {
     headers: { 
       'Content-Type': 'application/json',
-      'X-User-Id': auth.userId.value || '',
-      'X-User-Role': auth.userRole.value || ''
+      'Authorization': `Bearer ${auth.token.value}`
     },
     ...options
   };
@@ -24,6 +23,10 @@ async function apiFetch(endpoint, options = {}, retries = 3, delay = 1000) {
     const json = await res.json();
 
     if (!res.ok) {
+      // Sesión expirada o token inválido → cerrar sesión (el guard del router redirige al login)
+      if (res.status === 401) {
+        auth.logout();
+      }
       throw new Error(json.error || `Error ${res.status}`);
     }
 

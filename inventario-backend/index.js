@@ -11,6 +11,7 @@ const cors = require('@fastify/cors');
 const helmet = require('@fastify/helmet');
 const rateLimit = require('@fastify/rate-limit');
 const registerRoutes = require('./src/modules');
+const { authenticate } = require('./src/core/middleware/auth');
 
 // ─── Seguridad y Rate Limit Global ───
 fastify.register(helmet, {
@@ -22,11 +23,20 @@ fastify.register(rateLimit, {
 });
 
 // ─── CORS ───
+// Solo se permite el origen local (Vite dev) y orígenes sin header (Electron/file://, curl)
 fastify.register(cors, {
-  origin: true, // Permite cualquier origen en desarrollo
+  origin: (origin, cb) => {
+    if (!origin || origin === 'null') return cb(null, true);
+    const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    return cb(null, isLocalhost);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true
 });
+
+// ─── Autenticación JWT (onRequest global) ───
+// Verifica el Bearer token y deja request.user con los datos verificados
+fastify.addHook('onRequest', authenticate);
 
 // ─── Rutas ───
 fastify.register(registerRoutes);
