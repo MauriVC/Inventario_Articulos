@@ -18,7 +18,7 @@
     "rebuild-sqlite": "cd ../inventario-backend && pnpm exec electron-rebuild -f -w better-sqlite3 -v 33.0.0",
     "rebuild-sqlite-local": "cd ../inventario-backend && pnpm rebuild better-sqlite3 && pnpm -C ../inventario-app run rebuild-sqlite-app",
     "electron:build": "pnpm run rebuild-sqlite-app && pnpm run rebuild-sqlite && vite build && electron-builder && pnpm run rebuild-sqlite-local",
-    "postinstall": "pnpm run rebuild-sqlite-app"
+    "postinstall": "node scripts/postinstall.js"
   },
   "build": {
     "appId": "com.inventario.uecorazonnuevo",
