@@ -22,7 +22,6 @@ async function authRoutes(fastify) {
 
     try {
       const userData = await authService.login(carnet, contrasena);
-      // TODO: Generar JWT token para producción
       return { data: userData, message: 'Login exitoso' };
     } catch (err) {
       if (err.statusCode) return reply.code(err.statusCode).send({ error: err.message });

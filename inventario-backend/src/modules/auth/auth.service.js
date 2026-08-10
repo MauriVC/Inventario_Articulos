@@ -3,6 +3,7 @@
  */
 const { pool } = require('../../core/config/database');
 const { hashPassword } = require('../../core/helpers/hashPassword');
+const { signToken } = require('../../core/helpers/jwt');
 
 /**
  * Verificar credenciales y obtener datos del usuario con permisos
@@ -41,7 +42,14 @@ async function login(carnet, contrasena) {
     [user.id]
   );
 
+  const token = signToken({
+    id: user.id,
+    carnet: user.carnet,
+    rol: user.rol
+  });
+
   return {
+    token,
     id: user.id,
     carnet: user.carnet,
     nombres: user.nombres,
