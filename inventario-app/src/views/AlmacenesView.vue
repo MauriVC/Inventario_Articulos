@@ -106,6 +106,18 @@
                   <MapPin :size="14" style="color: #94a3b8;" /> {{ selectedAlmacenDetalle.ubicacion || '—' }}
                 </p>
               </div>
+              <div>
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Creado</span>
+                <p class="font-medium flex items-center gap-1.5" style="color: #475569;">
+                  <Calendar :size="14" style="color: #94a3b8;" /> {{ formatDate(selectedAlmacenDetalle.created_at) }}
+                </p>
+              </div>
+              <div v-if="fueEditado(selectedAlmacenDetalle)">
+                <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Última edición</span>
+                <p class="font-medium flex items-center gap-1.5" style="color: #475569;">
+                  <Calendar :size="14" style="color: #94a3b8;" /> {{ formatDate(selectedAlmacenDetalle.updated_at) }}
+                </p>
+              </div>
               <div style="grid-column: span 2;" v-if="selectedAlmacenDetalle.descripcion">
                 <span class="text-xs text-muted font-medium uppercase tracking-wider block mb-1">Descripción</span>
                 <p class="font-medium" style="color: #475569;">{{ selectedAlmacenDetalle.descripcion }}</p>
@@ -233,7 +245,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Plus, Pencil, Trash2, X, Save, Eye, MapPin, Package, User, Download, FileText, FileSpreadsheet } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, X, Save, Eye, MapPin, Package, User, Download, FileText, FileSpreadsheet, Calendar } from 'lucide-vue-next'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
@@ -357,6 +369,20 @@ async function eliminar(almacen) {
   }
 }
 
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  return d.toLocaleString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true
+  })
+}
+
+function fueEditado(almacen) {
+  if (!almacen?.created_at || !almacen?.updated_at) return false
+  return new Date(almacen.updated_at).getTime() !== new Date(almacen.created_at).getTime()
+}
+
 function exportToPDF() {
   if (!selectedAlmacenDetalle.value) return
   const doc = new jsPDF()
@@ -368,12 +394,19 @@ function exportToPDF() {
   doc.text(`Ubicación: ${selectedAlmacenDetalle.value.ubicacion || '—'}`, 14, 32)
   doc.text(`Responsable: ${selectedAlmacenDetalle.value.responsable_nombre || 'Sistema'}`, 14, 38)
   doc.text(`Estado: ${selectedAlmacenDetalle.value.estado}`, 14, 44)
+  doc.text(`Creado: ${formatDate(selectedAlmacenDetalle.value.created_at)}`, 14, 50)
+  let y = 56
+  if (fueEditado(selectedAlmacenDetalle.value)) {
+    doc.text(`Última edición: ${formatDate(selectedAlmacenDetalle.value.updated_at)}`, 14, y)
+    y += 6
+  }
   if (selectedAlmacenDetalle.value.descripcion) {
-    doc.text(`Descripción: ${selectedAlmacenDetalle.value.descripcion}`, 14, 50)
+    doc.text(`Descripción: ${selectedAlmacenDetalle.value.descripcion}`, 14, y)
+    y += 6
   }
   
   doc.setFontSize(14)
-  const startY = selectedAlmacenDetalle.value.descripcion ? 60 : 54
+  const startY = y
   doc.text('Artículos en el Almacén', 14, startY)
   
   const tableData = almacenArticulos.value.map(art => [
@@ -406,6 +439,8 @@ function exportToExcel() {
     ['Ubicación', selectedAlmacenDetalle.value.ubicacion || '—'],
     ['Responsable', selectedAlmacenDetalle.value.responsable_nombre || 'Sistema'],
     ['Estado', selectedAlmacenDetalle.value.estado],
+    ['Creado', formatDate(selectedAlmacenDetalle.value.created_at)],
+    ...(fueEditado(selectedAlmacenDetalle.value) ? [['Última edición', formatDate(selectedAlmacenDetalle.value.updated_at)]] : []),
     ['Descripción', selectedAlmacenDetalle.value.descripcion || '—'],
     [],
     ['Artículos en el Almacén']
