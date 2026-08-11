@@ -12,7 +12,7 @@ async function listar(userId, userRole) {
   const { join, where, params } = buildAlmacenJoinFilter(userId, userRole);
 
   const query = `
-    SELECT a.id, a.nombre, a.ubicacion, a.descripcion, a.estado, a.created_at,
+    SELECT a.id, a.nombre, a.ubicacion, a.descripcion, a.estado, a.created_at, a.updated_at,
            COUNT(art.id) AS totalArticulos,
            CONCAT(u.nombres, ' ', u.apellidos) AS responsable_nombre
     FROM almacenes a
@@ -73,7 +73,7 @@ async function crear({ nombre, ubicacion, descripcion, userId }) {
  */
 async function actualizar(id, { nombre, ubicacion, descripcion, estado, userId }) {
   const [result] = await pool.query(
-    'UPDATE almacenes SET nombre = ?, ubicacion = ?, descripcion = ?, estado = ? WHERE id = ?',
+    'UPDATE almacenes SET nombre = ?, ubicacion = ?, descripcion = ?, estado = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
     [nombre, ubicacion || null, descripcion || null, estado || 'Activo', id]
   );
   if (result.affectedRows === 0) {
